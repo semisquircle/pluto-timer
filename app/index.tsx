@@ -1,14 +1,12 @@
-import { ExpoWebGLRenderingContext, GLView } from "expo-gl";
 import * as Location from "expo-location";
-import { Renderer, TextureLoader } from "expo-three";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, GestureResponderEvent, Image, PanResponder, PanResponderGestureState, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
+import { Path, Svg } from "react-native-svg";
 import * as SUNCALC from "suncalc";
-import * as THREE from "three";
 import * as GLOBAL from "../global";
 
 
-const bodyDiameter = 1.1 * GLOBAL.slotWidth;
+const bodyDiameter = 1.01 * GLOBAL.slotWidth;
 const glowDiameter = 1.5 * bodyDiameter;
 
 
@@ -18,112 +16,17 @@ export default function HomeScreen() {
 
 
 	//* Top of screen body animation
-	const animationFrameId = useRef<number | null>(null);
-
-	const bodyRotateSpeed: number = 0.003;
-	const bodyDragSpeed: number = 0.005;
-	const bodySettleSpeed: number = 0.08;
-
-	type DragOffset = { x: number; y: number };
-	type Gesture = { x: number; y: number };
-
-	const dragOffset = useRef<DragOffset>({ x: 0, y: 0 });
-	const lastGesture = useRef<Gesture>({ x: 0, y: 0 });
-	const isDragging = useRef<boolean>(false);
-
-	const panResponder = useRef(
-		PanResponder.create({
-			onStartShouldSetPanResponder: () => true,
-			onPanResponderGrant: (evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-				isDragging.current = true;
-				lastGesture.current = { x: gestureState.x0, y: gestureState.y0 };
-			},
-			onPanResponderMove: (evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-				const dx = gestureState.moveX - lastGesture.current.x;
-				const dy = gestureState.moveY - lastGesture.current.y;
-				dragOffset.current.x += dx * bodyDragSpeed;
-				dragOffset.current.y += dy * bodyDragSpeed;
-				lastGesture.current = { x: gestureState.moveX, y: gestureState.moveY };
-			},
-			onPanResponderRelease: () => {
-				isDragging.current = false;
-			},
-		})
-	).current;
-
+	const glowDiameter = 1.5 * GLOBAL.slotWidth;
+	const bodyFrameWidth = 20;
+	const bodyFrameHeight = 20;
+	const [bodyFrame, setBodyFrame] = useState<number>(0);
 	useEffect(() => {
-		return () => {
-			if (animationFrameId.current !== null) {
-				cancelAnimationFrame(animationFrameId.current);
-			}
-		};
+		const interval = setInterval(() => {
+			setBodyFrame(prev => (prev < (bodyFrameWidth * bodyFrameHeight - 1) ? prev + 1 : 0));
+		}, 50);
+
+		return () => clearInterval(interval);
 	}, []);
-
-	const onContextCreate = async (gl: ExpoWebGLRenderingContext) => {
-		//? pixelStorei fix
-		const pixelStorei = gl.pixelStorei.bind(gl);
-		gl.pixelStorei = function (...args) {
-			const [parameter] = args;
-			switch (parameter) {
-				case gl.UNPACK_FLIP_Y_WEBGL:
-					return pixelStorei(...args);
-			}
-		};
-
-		// Three.js
-		const { drawingBufferWidth: width, drawingBufferHeight: height } = gl;
-		const scene = new THREE.Scene();
-		const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-		camera.position.z = 1.645;
-		const renderer = new Renderer({ gl });
-		renderer.setSize(width, height);
-
-		// Lighting
-		const light = new THREE.DirectionalLight(0xffffff, 3);
-		light.position.set(0, -1, 0.25);
-		scene.add(light);
-
-		// Texture
-		const bodyTexture = new TextureLoader().load(require("../assets/images/textures/pluto.jpg"));
-		bodyTexture.minFilter = THREE.LinearFilter;
-		bodyTexture.magFilter = THREE.LinearFilter;
-
-		// Body mesh
-		const bodyGeometry = new THREE.SphereGeometry(1, 64, 64);
-		const bodyMaterial = new THREE.MeshStandardMaterial({ map: bodyTexture });
-		const bodySphere = new THREE.Mesh(bodyGeometry, bodyMaterial);
-
-		// Tilt group
-		const tiltGroup = new THREE.Group();
-		tiltGroup.add(bodySphere);
-		tiltGroup.rotation.z = -body?.axialTilt * (Math.PI / 180);
-
-		// Outer/drag group
-		const outerGroup = new THREE.Group();
-		outerGroup.add(tiltGroup);
-		scene.add(outerGroup);
-
-		// Animate
-		const render = () => {
-			animationFrameId.current = requestAnimationFrame(render);
-
-			bodySphere.rotation.y += bodyRotateSpeed;
-
-			if (isDragging.current) {
-				outerGroup.rotation.x = dragOffset.current.y;
-				outerGroup.rotation.y = dragOffset.current.x;
-			} else {
-				outerGroup.rotation.x += (0 - outerGroup.rotation.x) * bodySettleSpeed;
-				outerGroup.rotation.y += (0 - outerGroup.rotation.y) * bodySettleSpeed;
-				dragOffset.current.x += (0 - dragOffset.current.x) * bodySettleSpeed;
-				dragOffset.current.y += (0 - dragOffset.current.y) * bodySettleSpeed;
-			}
-
-			renderer.render(scene, camera);
-			gl.endFrameEXP();
-		};
-		render();
-	};
 
 
 	//* Time calculation
@@ -150,8 +53,7 @@ export default function HomeScreen() {
 	}
 
 	const [errorMsg, setErrorMsg] = useState<any>(null);
-	const [currentPosition, setCurrentPosition] = useState<any>(null);
-	const [currentLocation, setCurrentLocation] = useState<any>(null);
+	const [cityText, setCityText] = useState<string>("");
 	const [isBodyTimeNow, setIsBodyTimeNow] = useState<boolean>(false);
 	const [bodyTime, setBodyTime] = useState<any>("");
 	const [bodyTimeDate, setBodyTimeDate] = useState<any>("");
@@ -168,15 +70,15 @@ export default function HomeScreen() {
 			let position = await Location.getCurrentPositionAsync({});
 			let lat = position.coords.latitude;
 			let lon = position.coords.longitude;
-			// let lat = 17.9307;
-			// let lon = 19.1045;
-			setCurrentPosition(position);
+			// let lat = -37.331313;
+			// let lon = -65.651870;
 
 			let [location] = await Location.reverseGeocodeAsync({
 				latitude: lat,
 				longitude: lon,
 			});
-			setCurrentLocation(location);
+
+			setCityText(location?.city ?? location?.region ?? location?.country ?? "");
 
 			let now = new Date();
 			let next = findNextBodyTime(now, lat, lon);
@@ -228,15 +130,15 @@ export default function HomeScreen() {
 	//* Orbit animation (soon to be altered)
 	const orbitSemiMajorAxis = 0.1 * GLOBAL.slotWidth;
 	const orbitSemiMinorAxis = orbitSemiMajorAxis * Math.sqrt(1 - Math.pow(body?.ecc, 2));
-	const spinAnim = useRef(new Animated.Value(0)).current;
 
+	const spinAnim = useRef(new Animated.Value(0)).current;
 	useEffect(() => {
 		Animated.loop(
 			Animated.timing(
 				spinAnim,
 				{
 					toValue: 1,
-					duration: 1500,
+					duration: 5000,
 					easing: Easing.linear,
 					useNativeDriver: true
 				}
@@ -268,10 +170,19 @@ export default function HomeScreen() {
 			height: glowDiameter,
 		},
 
-		gl: {
-			width: bodyDiameter,
-			height: bodyDiameter,
-			marginTop: -bodyDiameter / 2,
+		spritesheetContainer: {
+			marginTop: -GLOBAL.slotWidth / 2,
+			width: GLOBAL.slotWidth,
+			height: GLOBAL.slotWidth,
+			transform: [{rotate: `${body?.axialTilt}deg`}],
+			overflow: "hidden",
+		},
+
+		spritesheetImg: {
+			width: bodyFrameWidth * GLOBAL.slotWidth,
+			height: bodyFrameHeight * GLOBAL.slotWidth,
+			marginLeft: -(bodyFrame % bodyFrameWidth) * GLOBAL.slotWidth,
+			marginTop: -(Math.floor(bodyFrame / bodyFrameWidth)) * GLOBAL.slotWidth,
 		},
 
 		timeContainer: {
@@ -284,13 +195,13 @@ export default function HomeScreen() {
 		nextText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "Redaction50-Regular",
+			fontFamily: "Redaction-Regular",
 			fontSize: 20,
 			color: GLOBAL.uiColors[0],
 		},
 
 		nextBodyTime: {
-			fontFamily: "Redaction50-Bold",
+			fontFamily: "Redaction-Bold",
 			color: body?.colors[0],
 		},
 
@@ -307,10 +218,15 @@ export default function HomeScreen() {
 		dateText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "Redaction50-Regular",
+			fontFamily: "Redaction-Bold",
 			fontSize: 20,
 			marginTop: 7,
 			color: body?.colors[0],
+		},
+
+		dateOnText: {
+			fontFamily: "Redaction-Regular",
+			color: GLOBAL.uiColors[0],
 		},
 
 		cityTextContainer: {
@@ -324,17 +240,23 @@ export default function HomeScreen() {
 		orbitSpinner: {
 			position: "absolute",
 			opacity: 0.2,
-			borderWidth: 1,
-			borderColor: GLOBAL.uiColors[0],
-			borderRadius: "50%",
+			width: GLOBAL.slotWidth / 6,
+			height: GLOBAL.slotWidth / 6,
+			transform: [{ rotate: spinCW }],
+		},
+
+		orbitSpinnerSvg: {
+			width: "100%",
+			height: "100%",
 		},
 
 		cityText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "Redaction50-Italic",
-			fontSize: 25,
+			fontFamily: "Redaction-Italic",
+			fontSize: ((GLOBAL.slotWidth / 2) / cityText.length) * 2,
 			color: GLOBAL.uiColors[0],
+			overflow: "visible",
 		},
 	});
 
@@ -343,13 +265,8 @@ export default function HomeScreen() {
 	return (
 		<View style={styles.content}>
 			<Image style={styles.glow} source={require("../assets/images/glow.png")} />
-
-			<View
-				style={styles.gl}
-				{...panResponder.panHandlers}
-				pointerEvents="box-none"
-			>
-				<GLView style={{ flex: 1 }} onContextCreate={onContextCreate} />
+			<View style={styles.spritesheetContainer} >
+				<Image style={styles.spritesheetImg} source={require("../assets/images/spritesheets/pluto.png")} />
 			</View>
 
 			<View style={styles.timeContainer}>
@@ -360,24 +277,18 @@ export default function HomeScreen() {
 				<Text style={styles.timeText}>{bodyTime}</Text>
 
 				<Text style={styles.dateText}>
-					<Text style={{ color: GLOBAL.uiColors[0] }}>on </Text>
+					<Text style={styles.dateOnText}>on </Text>
 					{bodyTimeDate}
 				</Text>
 
 				<View style={styles.cityTextContainer}>
-					<Animated.View style={[
-						styles.orbitSpinner,
-						{
-							width: 2 * orbitSemiMajorAxis,
-							height: 2 * orbitSemiMinorAxis,
-							transform: [{ rotate: spinCW }]
-						}
-					]}/>
+					<Animated.View style={styles.orbitSpinner}>
+						<Svg style={styles.orbitSpinnerSvg} viewBox="0 0 100 100">
+							<Path fill="transparent" stroke="white" strokeWidth="2" d="M 49.99934,5 C 46.019117,5 43.222377,9.9429036 41.41159,17.951499 35.840177,11.92064 30.947305,9.0389415 27.500329,11.028828 24.053353,13.019164 24.102067,18.698054 26.53925,26.53925 18.698054,24.102067 13.019164,24.053353 11.028828,27.500329 c -1.9898865,3.446976 0.89268,8.340717 6.92399,13.912578 C 9.9433217,43.222795 5,46.019117 5,49.99934 c 0,3.980222 4.9433217,6.777863 12.952818,8.587751 -6.03131,5.571863 -8.9138765,10.465602 -6.92399,13.912578 1.989886,3.446976 7.668776,3.398262 15.510422,0.961079 -2.437183,7.841196 -2.485897,13.520086 0.961079,15.510423 3.446976,1.989886 8.341167,-0.891811 13.912578,-6.922672 C 43.223245,90.057095 46.019117,95 49.99934,95 c 3.980222,0 6.777863,-4.943322 8.587751,-12.952819 5.571863,6.03131 10.465602,8.913876 13.912578,6.92399 3.446976,-1.990337 3.398262,-7.669227 0.961079,-15.510423 7.841196,2.437183 13.520086,2.485897 15.510423,-0.961079 C 90.961057,69.052693 88.07981,64.158954 82.048499,58.587091 90.057095,56.777203 95,53.979562 95,49.99934 95,46.019117 90.057095,43.223245 82.048499,41.412907 88.07981,35.841046 90.961057,30.947305 88.971171,27.500329 86.980834,24.053353 81.301944,24.102067 73.460748,26.53925 75.897931,18.698054 75.946645,13.019164 72.499669,11.028828 69.052693,9.0389415 64.158954,11.921058 58.587091,17.952818 56.777203,9.9433217 53.979562,5 49.99934,5 Z" />
+						</Svg>
+					</Animated.View>
 
-					<Text style={styles.cityText}>
-						{currentLocation?.city ? currentLocation.city + ", " : ""}
-						{currentLocation?.region}
-					</Text>
+					<Text style={styles.cityText}>{cityText}</Text>
 				</View>
 			</View>
 		</View>

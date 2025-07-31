@@ -19,7 +19,7 @@ export default function NotificationsScreen() {
 	//* Components
 	return (
 		<View style={styles.content}>
-			<Text>Notifications screen</Text>
+			<Text></Text>
 		</View>
 	);
 }
