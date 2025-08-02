@@ -9,7 +9,7 @@ import * as GLOBAL from "../ref/global";
 import HomeScreen from "./";
 import BodiesScreen from "./bodies";
 import CreditsScreen from "./credits";
-import LocationScreen from "./locations";
+import LocationScreen from "./location";
 import NotificationsScreen from "./notifications";
 
 
