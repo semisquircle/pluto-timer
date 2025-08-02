@@ -25,6 +25,7 @@
     "expo-gl": "~15.1.7",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.3.2",
+    "expo-linear-gradient": "~14.1.5",
     "expo-linking": "~7.1.7",
     "expo-location": "~18.1.6",
     "expo-mesh-gradient": "~0.3.4",
@@ -33,7 +34,6 @@
     "expo-status-bar": "~2.2.3",
     "expo-symbols": "~0.4.4",
     "expo-system-ui": "~5.0.10",
-    "expo-three": "^8.0.0",
     "expo-web-browser": "~14.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -47,8 +47,7 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "suncalc": "^1.9.0",
-    "zustand": "^5.0.6",
-    "expo-linear-gradient": "~14.1.5"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

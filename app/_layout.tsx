@@ -2,20 +2,75 @@ import MaskedView from "@react-native-masked-view/masked-view";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
-import { Image, StatusBar, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Image, StatusBar, StyleSheet, View } from "react-native";
 import { Ellipse, Path, Rect, Svg } from "react-native-svg";
-import * as GLOBAL from "../global";
+import * as GLOBAL from "../ref/global";
 import HomeScreen from "./";
 import BodiesScreen from "./bodies";
 import CreditsScreen from "./credits";
-import LocationScreen from "./location";
+import LocationScreen from "./locations";
 import NotificationsScreen from "./notifications";
 
 
 export default function Layout() {
 	//* Body-ody-ody
-	const body = GLOBAL.useBodyStore((s: any) => s.body);
+	const BODY = GLOBAL.useBodyStore((s: any) => s.body);
+
+
+	//* Stars
+	const numStars = 60;
+	const numStarLayers = 3;
+	const starDimensions = [4, 2.5, 1];
+	const starDurations = [8, 12, 16]; // Seconds
+	const starAngle = 10;
+	const starAngleTan = Math.tan((starAngle * Math.PI) / 180);
+	const starsRef = useRef(
+		Array(numStars)
+		.fill(null)
+		.map(() => ({
+			layer: Math.floor(Math.random() * numStarLayers) + 1,
+			animX: new Animated.Value(0),
+			animY: new Animated.Value(Math.random() * GLOBAL.slotHeight),
+			isFirstRun: true,
+		}))
+	).current;
+
+	useEffect(() => {
+		function animateStar(index: number) {
+			const star = starsRef[index];
+			let startX: number;
+
+			if (star.isFirstRun) {
+				startX = Math.random() * GLOBAL.slotWidth;
+				star.isFirstRun = false;
+			}
+			else startX = -starDimensions[star.layer - 1];
+
+			const distance = GLOBAL.slotWidth - startX;
+			const duration = (distance / GLOBAL.slotWidth) * (starDurations[star.layer - 1] * 1000);
+
+			star.animX.setValue(startX);
+
+			Animated.timing(star.animX, {
+				toValue: GLOBAL.slotWidth,
+				duration,
+				easing: Easing.linear,
+				useNativeDriver: true,
+			}).start(() => {
+				star.animY.setValue(Math.random() * GLOBAL.slotHeight);
+				animateStar(index);
+			});
+		}
+
+		for (let i = 0; i < numStars; i++) animateStar(i);
+
+		return () => {
+			for (let i = 0; i < numStars; i++) {
+				starsRef[i].animX.stopAnimation && starsRef[i].animX.stopAnimation();
+			}
+		};
+	}, [starsRef]);
 
 
 	//* Tabs/navigation
@@ -64,7 +119,7 @@ export default function Layout() {
 			handlePath: "m 40.927908,44.672795 c 5.780709,0.420713 11.959634,0.45119 18.144703,3.29e-4 a 2.9194361,2.9194361 124.99011 0 0 2.580462,-3.686635 l -3.451166,-12.87776 a 4.351552,4.351552 35.877834 0 0 -4.400215,-3.18263 c -2.563191,0.09924 -5.084073,0.09438 -7.598992,-0.0091 a 4.3406186,4.3406186 144.19158 0 0 -4.399673,3.174127 C 40.65114,32.3896 39.499252,36.688038 38.347364,40.986475 a 2.9191774,2.9191774 55.006726 0 0 2.580544,3.68632 z",
 			unpressedSrc: require("../assets/images/tabs/unpressed/3.png"),
 			pressedSrc: require("../assets/images/tabs/pressed/3.png"),
-			iconPath: body?.icon,
+			iconPath: BODY?.icon,
 			iconStyle: {
 				marginTop: tabIcon3X,
 			},
@@ -102,36 +157,10 @@ export default function Layout() {
 
 	//* Fonts
 	const [loaded, error] = useFonts({
-		"Redaction-Bold": require("../assets/fonts/Redaction/Redaction-Bold.otf"),
-		"Redaction-Italic": require("../assets/fonts/Redaction/Redaction-Italic.otf"),
-		"Redaction-Regular": require("../assets/fonts/Redaction/Redaction-Regular.otf"),
-
-		"Redaction10-Bold": require("../assets/fonts/Redaction/Redaction10-Bold.otf"),
-		"Redaction10-Italic": require("../assets/fonts/Redaction/Redaction10-Italic.otf"),
-		"Redaction10-Regular": require("../assets/fonts/Redaction/Redaction10-Regular.otf"),
-
-		"Redaction20-Bold": require("../assets/fonts/Redaction/Redaction20-Bold.otf"),
-		"Redaction20-Italic": require("../assets/fonts/Redaction/Redaction20-Italic.otf"),
-		"Redaction20-Regular": require("../assets/fonts/Redaction/Redaction20-Regular.otf"),
-
-		"Redaction35-Bold": require("../assets/fonts/Redaction/Redaction35-Bold.otf"),
-		"Redaction35-Italic": require("../assets/fonts/Redaction/Redaction35-Italic.otf"),
-		"Redaction35-Regular": require("../assets/fonts/Redaction/Redaction35-Regular.otf"),
-
-		"Redaction50-Bold": require("../assets/fonts/Redaction/Redaction50-Bold.otf"),
-		"Redaction50-Italic": require("../assets/fonts/Redaction/Redaction50-Italic.otf"),
-		"Redaction50-Regular": require("../assets/fonts/Redaction/Redaction50-Regular.otf"),
-
-		"Redaction70-Bold": require("../assets/fonts/Redaction/Redaction70-Bold.otf"),
-		"Redaction70-Italic": require("../assets/fonts/Redaction/Redaction70-Italic.otf"),
-		"Redaction70-Regular": require("../assets/fonts/Redaction/Redaction70-Regular.otf"),
-
-		"Redaction100-Bold": require("../assets/fonts/Redaction/Redaction100-Bold.otf"),
-		"Redaction100-Italic": require("../assets/fonts/Redaction/Redaction100-Italic.otf"),
-		"Redaction100-Regular": require("../assets/fonts/Redaction/Redaction100-Regular.otf"),
-
-		"outward-block": require("../assets/fonts/Outward/outward-block.ttf"),
-		"outward-semi": require("../assets/fonts/Outward/outward-semi.ttf"),
+		"RandomWikiSerexine-Regular": require("../assets/fonts/RandomWikiSerexine-Regular.otf"),
+		"PlantasiaMyrtillo-Bold": require("../assets/fonts/PlantasiaMyrtillo-Bold.otf"),
+		"Kulture-Regular": require("../assets/fonts/Kulture-Regular.otf"),
+		"outward-semi": require("../assets/fonts/outward-semi.ttf"),
 	});
 
 
@@ -154,6 +183,20 @@ export default function Layout() {
 			borderBottomLeftRadius: 0,
 			borderBottomRightRadius: 0,
 			overflow: "hidden",
+		},
+
+		slotBG: {
+			position: "absolute",
+			width: GLOBAL.slotWidth,
+			height: GLOBAL.slotHeight,
+			backgroundColor: GLOBAL.uiColors[1]
+		},
+
+		star: {
+			position: "absolute",
+			opacity: 0.5,
+			backgroundColor: "white",
+			borderRadius: "50%",
 		},
 
 		slotCarousel: {
@@ -211,7 +254,7 @@ export default function Layout() {
 
 	//* Components
 	return (
-		<LinearGradient style={styles.screen} colors={[body?.colors[0], body?.colors[1]]}>			
+		<LinearGradient style={styles.screen} colors={[BODY?.colors[0], BODY?.colors[1]]}>			
 			<StatusBar />
 
 			<View style={[styles.slotView, styles.shadow]}>
@@ -234,6 +277,25 @@ export default function Layout() {
 						</Svg>
 					}
 				>
+					<View style={styles.slotBG}></View>
+
+					{starsRef.map((star, i) => {
+						const translateY = Animated.add(star.animY, Animated.multiply(star.animX, starAngleTan));
+						return (
+							<Animated.View
+								key={`star-${i}`}
+								style={[
+									styles.star,
+									{
+										width: starDimensions[star.layer],
+										height: starDimensions[star.layer],
+										transform: [{ translateX: star.animX }, { translateY }],
+									}
+								]}
+							/>
+						);
+					})}
+
 					<View style={[styles.slotCarousel]}>
 						<NotificationsScreen />
 						<LocationScreen />
@@ -261,7 +323,7 @@ export default function Layout() {
 					{tabArray.map((tab, i) => (
 						<Path
 							key={`${tab.key}-path`}
-							fill={body?.colors[0]}
+							fill={BODY?.colors[0]}
 							onPress={() => { setActiveTab(i) }}
 							d={tab.handlePath}
 						/>

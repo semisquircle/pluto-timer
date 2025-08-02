@@ -1,16 +1,14 @@
 import { StyleSheet, Text, View } from "react-native";
-import * as GLOBAL from "../global";
+import * as GLOBAL from "../ref/global";
 
 
 export default function BodiesScreen() {
 	//* Stylesheet
 	const styles = StyleSheet.create({
 		content: {
+			alignItems: "center",
 			width: GLOBAL.slotWidth,
 			height: GLOBAL.slotHeight,
-			justifyContent: "center",
-			alignItems: "center",
-			backgroundColor: GLOBAL.uiColors[0],
 			overflow: "hidden",
 		},
 	});

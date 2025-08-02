@@ -7,20 +7,26 @@ spacing = 10
 
 # Width map for specific characters
 char_widths = {
-	"A": 120,
-	"P": 120,
-	"M": 185,
-	"0": 120,
-	"1": 55,
-	"2": 120,
-	"3": 120,
-	"4": 120,
-	"5": 120,
-	"6": 120,
-	"7": 120,
-	"8": 120,
-	"9": 120,
-	":": 55,
+	"A": 12,
+	"M": 18.5,
+	"N": 18.5,
+	"O": 12,
+	"P": 12,
+	"W": 18.5,
+
+	"0": 12,
+	"1": 5.5,
+	"2": 12,
+	"3": 12,
+	"4": 12,
+	"5": 12,
+	"6": 12,
+	"7": 12,
+	"8": 12,
+	"9": 12,
+
+	":": 5.5,
+	"!": 5.5,
 }
 
 # Create a new font
@@ -36,10 +42,11 @@ for char, width in char_widths.items():
 
 	filename = char
 	if char == ":": filename = "Colon"
+	if char == "!": filename = "Exclamation Point"
 	
 	svg_path = os.path.join("glyphs", filename + ".svg")
 	glyph.importOutlines(svg_path)
-	glyph.width = width
+	glyph.width = int(width * 10)
 	glyph.left_side_bearing = 0
 	glyph.right_side_bearing = 0
 
@@ -60,5 +67,5 @@ font.fullname = "Outward Semi"
 font.familyname = "Outward"
 
 # --- Generate font ---
-font.generate("../Outward/" + font.fontname + ".ttf")
+font.generate("../" + font.fontname + ".ttf")
 print("✅ TTF font generated: " + font.fontname + ".ttf")
