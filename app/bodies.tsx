@@ -7,8 +7,8 @@ export default function BodiesScreen() {
 	const styles = StyleSheet.create({
 		content: {
 			alignItems: "center",
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.slotHeight,
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
 			overflow: "hidden",
 		},
 	});

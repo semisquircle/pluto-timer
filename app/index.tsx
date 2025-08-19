@@ -1,16 +1,28 @@
-import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { Image, PanResponder, StyleSheet, Text, View } from "react-native";
-import * as SUNCALC from "suncalc";
+import { Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 import * as GLOBAL from "../ref/global";
 
 export default function HomeScreen() {
-	//* Body-ody-ody
-	const BODY = GLOBAL.useBodyStore((s: any) => s.body);
+	//* Global app storage
+	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+
+	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
+
+	const SavedLocations = GLOBAL.useAppStore((state) => state.savedLocations);
+	const EditSavedLocation = GLOBAL.useAppStore((state) => state.editSavedLocation);
+
+	const ActiveLocationIndex = GLOBAL.useAppStore((state) => state.activeLocationIndex);
+	const SetActiveLocationIndex = GLOBAL.useAppStore((state) => state.setActiveLocationIndex);
+	const ActiveLocation = SavedLocations[ActiveLocationIndex];
 
 
-	//* Body animation/dragging
-	const glowDiameter = 1.4 * GLOBAL.slotWidth;
+	//* Body rotation animation/dragging
+	// const bodyDiameter = GLOBAL.slot.width - 2 * (GLOBAL.screen.borderRadius.ios - GLOBAL.screen.borderWidth);
+	const bodyDiameter = GLOBAL.slot.width;
+	const glowDiameter = 1.4 * bodyDiameter;
 
 	const bodyFrameWidth = 20;
 	const bodyFrameHeight = 20;
@@ -19,10 +31,11 @@ export default function HomeScreen() {
 	const bodyAnimFPS = 30;
 	const intervalRef = useRef<any>(null);
 	const bodyFrameRef = useRef(0);
-	const [, forceAnim] = useState(0);
+	const [, forceBodyRotAnim] = useState(0);
 	const [isDragging, setIsDragging] = useState<boolean>(false);
 	const dragStartFrameRef = useRef(0);
 	const dragStartXRef = useRef(0);
+	const dragStartYRef = useRef(0);
 
 	// Ensures negative frame numbers get wrapped back around
 	function modFrame(n: number) {
@@ -34,7 +47,7 @@ export default function HomeScreen() {
 		if (!isDragging) {
 		intervalRef.current = setInterval(() => {
 			bodyFrameRef.current = modFrame(bodyFrameRef.current - 1);
-			forceAnim((f) => f + 1);
+			forceBodyRotAnim((f) => f + 1);
 		}, 1000 / bodyAnimFPS);
 		} else clearInterval(intervalRef.current);
 
@@ -48,204 +61,196 @@ export default function HomeScreen() {
 				setIsDragging(true);
 				dragStartFrameRef.current = bodyFrameRef.current;
 				dragStartXRef.current = evt.nativeEvent.pageX;
+				dragStartYRef.current = evt.nativeEvent.pageY;
 			},
 			onPanResponderMove: (evt) => {
-				let dragCurrentX = evt.nativeEvent.pageX;
-				let dragChangeX = dragStartXRef.current - dragCurrentX;
-				let dragChangeXAdjusted = Math.round(dragChangeX / 2);
+				const dragCurrentX = evt.nativeEvent.pageX;
+				const dragCurrentY = evt.nativeEvent.pageY;
+				const dx = dragCurrentX - dragStartXRef.current;
+				const dy = dragCurrentY - dragStartYRef.current;
+
+				// Axial tilt in radians (negative because screen Y increases downward)
+				const theta = (ActiveBody?.axialTilt ?? 0) * Math.PI / 180;
+				const dragAlongTilt = dx * Math.cos(theta) + dy * Math.sin(theta);
+
+				const dragChangeXAdjusted = Math.round(-dragAlongTilt / 2); // Negative to match original direction
 				bodyFrameRef.current = modFrame(dragStartFrameRef.current + dragChangeXAdjusted);
-				forceAnim((f) => f + 1);
+				forceBodyRotAnim((f) => f + 1);
 			},
-			onPanResponderRelease: (evt) => {
+			onPanResponderRelease: () => {
 				setIsDragging(false);
 			},
 		})
 	).current;
 
 
-	//* Time calculation
-	function solarElevationAt(date: any, lat: number, lon: number) {
-		const pos = SUNCALC.getPosition(date, lat, lon);
-		return (pos.altitude * 180) / Math.PI;
-	}
+	//* Text fitting
+	const bodyTimeFontPrefs: any[] = [
+		{
+			name: "Hades-Tall",
+			spacing: 1,
+			glyphHeight: 57.5,
+			glyphWidths: {
+				"A": 12,
+				"M": 18.5,
+				"N": 18.5,
+				"O": 12,
+				"P": 12,
+				"W": 18.5,
 
-	function findNextBodyTime(startDate: any, lat: number, lon: number) {
-		const step = 60 * 1000; // 1-minute steps
-		let date = new Date(startDate.getTime());
-		let ele = solarElevationAt(date, lat, lon);
-		const isBefore = ele <= BODY?.targetElevation;
+				"0": 12,
+				"1": 5.5,
+				"2": 12,
+				"3": 12,
+				"4": 12,
+				"5": 12,
+				"6": 12,
+				"7": 12,
+				"8": 12,
+				"9": 12,
 
-		while (true) {
-			date = new Date(date.getTime() + step);
-			ele = solarElevationAt(date, lat, lon);
-			if ((isBefore && ele > BODY?.targetElevation) || (!isBefore && ele <= BODY?.targetElevation)) {
-				break;
+				":": 5.5,
+				"!": 5.5
+			}
+		},
+		{
+			name: "Hades-Short",
+			spacing: 1.5,
+			glyphHeight: 51.5,
+			glyphWidths: {
+				"A": 12.5,
+				"M": 19.5,
+				"N": 19.5,
+				"O": 12.5,
+				"P": 12.5,
+				"W": 19.5,
+
+				"0": 12.5,
+				"1": 5.5,
+				"2": 12.5,
+				"3": 12.5,
+				"4": 12.5,
+				"5": 12.5,
+				"6": 12.5,
+				"7": 12.5,
+				"8": 12.5,
+				"9": 12.5,
+
+				":": 5.5,
+				"!": 5.5
 			}
 		}
+	];
 
-		return date;
-	}
+	const bodyTimeFontIndex = (ActiveLocation.isBodyTimeNow) ? 1 : 0;
+	const bodyTimeFontPref = bodyTimeFontPrefs[bodyTimeFontIndex];
 
-	const [errorMsg, setErrorMsg] = useState<any>(null);
-	const [cityText, setCityText] = useState<string>("");
-	const [isBodyTimeNow, setIsBodyTimeNow] = useState<boolean>(false);
-	const [bodyTime, setBodyTime] = useState<any>("");
-	const [bodyTimeDate, setBodyTimeDate] = useState<any>("");
-
-	useEffect(() => {
-		if (!BODY) return; // Wait until body is loaded
-
-		(async () => {
-			let { status } = await Location.requestForegroundPermissionsAsync();
-			if (status !== "granted") {
-				setErrorMsg("Permission to access location was denied");
-				return;
-			}
-
-			let position = await Location.getCurrentPositionAsync({});
-			let lat = position.coords.latitude;
-			let lon = position.coords.longitude;
-			// let lat = -37.331313;
-			// let lon = -65.651870;
-
-			let [location] = await Location.reverseGeocodeAsync({
-				latitude: lat,
-				longitude: lon,
-			});
-
-			setCityText(location?.city ?? location?.region ?? location?.country ?? "");
-
-			let now = new Date();
-			let next = findNextBodyTime(now, lat, lon);
-			let dt = next.getTime() - now.getTime();
-			let threshold = 5 * 60 * 1000; // 5 minutes
-
-			if (dt <= threshold) setIsBodyTimeNow(true);
-			else {
-				setIsBodyTimeNow(false);
-
-				let nextBodyTime = next
-					.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })
-					.replace(/\s/g, "");
-				setBodyTime(nextBodyTime);
-
-				let nextBodyTimeDate = next.toLocaleDateString(undefined, {
-					weekday: "long",
-					year: "numeric",
-					month: "long",
-					day: "numeric",
-				});
-				setBodyTimeDate(nextBodyTimeDate);
-			}
-		})();
-	}, [BODY]);
-
-
-	//* Text fitting
 	let nextBodyTimeWidth = 0;
-	const charWidths: any = {
-		"A": 12,
-		"M": 18.5,
-		"N": 18.5,
-		"O": 12,
-		"P": 12,
-
-		"0": 12,
-		"1": 5.5,
-		"2": 12,
-		"3": 12,
-		"4": 12,
-		"5": 12,
-		"6": 12,
-		"7": 12,
-		"8": 12,
-		"9": 12,
-
-		":": 5.5,
-	};
-	const charHeight = 57.5;
-	for (let i = 0; i < bodyTime.length; i++) {
-		let char = bodyTime[i];
-		nextBodyTimeWidth += charWidths[char];
-		if (i != bodyTime.length - 1) nextBodyTimeWidth++;
+	for (let i = 0; i < ActiveLocation.nextBodyTime.length; i++) {
+		const char = ActiveLocation.nextBodyTime[i];
+		nextBodyTimeWidth += bodyTimeFontPref.glyphWidths[char];
+		if (i != ActiveLocation.nextBodyTime.length - 1) nextBodyTimeWidth += bodyTimeFontPref.spacing;
 	}
 
-	const bodyTextSize = 22;
+	const locationNameTextSize =
+		(ActiveLocation.name.length > 20) ? GLOBAL.ui.bodyTextSize :
+		(ActiveLocation.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize :
+		2 * GLOBAL.ui.bodyTextSize;
+	const locationNameTextOffset = GLOBAL.screen.borderWidth;
+	const curLocTextOffset = locationNameTextOffset + locationNameTextSize + 3;
 
 
 	//* Stylesheet
 	const styles = StyleSheet.create({
 		content: {
+			justifyContent: "center",
 			alignItems: "center",
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.slotHeight,
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
 			overflow: "hidden",
 		},
 
 		glow: {
 			position: "absolute",
 			top: -glowDiameter / 2,
+			opacity: 0.75,
 			width: glowDiameter,
 			height: glowDiameter,
 		},
 
 		spriteSheetContainer: {
-			marginTop: -GLOBAL.slotWidth / 2,
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.slotWidth,
-			transform: [{ rotate: `${BODY?.axialTilt}deg` }],
+			position: "absolute",
+			top: -bodyDiameter / 2,
+			width: bodyDiameter,
+			height: bodyDiameter,
+			transform: [{rotate: `${ActiveBody?.axialTilt}deg`}],
 			overflow: "hidden",
-			zIndex: 9999,
+			zIndex: 9998,
 		},
 
 		spriteSheetImg: {
-			width: bodyFrameWidth * GLOBAL.slotWidth,
-			height: bodyFrameHeight * GLOBAL.slotWidth,
-			marginLeft: -(bodyFrameRef.current % bodyFrameWidth) * GLOBAL.slotWidth,
-			marginTop: -Math.floor(bodyFrameRef.current / bodyFrameWidth) * GLOBAL.slotWidth,
+			width: bodyFrameWidth * bodyDiameter,
+			height: bodyFrameHeight * bodyDiameter,
+			marginLeft: -(bodyFrameRef.current % bodyFrameWidth) * bodyDiameter,
+			marginTop: -Math.floor(bodyFrameRef.current / bodyFrameWidth) * bodyDiameter,
+		},
+
+		bodyShadow: {
+			position: "absolute",
+			top: 0,
+			width: bodyDiameter,
+			height: 0.3 * bodyDiameter,
+			zIndex: 9999,
+		},
+
+		bodyShadowImg: {
+			width: "100%",
+			height: "100%",
 		},
 
 		timeContainer: {
+			position: "absolute",
 			justifyContent: "center",
 			width: "100%",
-			margin: "auto",
+			marginTop: bodyDiameter / 3,
+			transform: [{skewY: GLOBAL.slot.skew + "deg"}],
 		},
 
 		nextText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "PlantasiaMyrtillo-Bold",
-			fontSize: bodyTextSize,
-			color: GLOBAL.uiColors[0],
+			fontFamily: "Trickster-Reg",
+			fontSize: GLOBAL.ui.bodyTextSize,
+			color: GLOBAL.ui.colors[0],
 		},
 
 		nextBodyTime: {
-			fontFamily: "RandomWikiSerexine-Regular",
-			color: BODY?.colors[0],
+			fontFamily: "Trickster-Reg",
+			color: ActiveBody?.colors[0],
 		},
 
 		timeText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "outward-semi",
-			fontSize: ((GLOBAL.slotWidth - 2 * GLOBAL.screenBorderWidth) / nextBodyTimeWidth) * charHeight,
-			color: GLOBAL.uiColors[0],
-			marginTop: 7,
-			overflow: "hidden",
+			fontFamily: bodyTimeFontPref.name,
+			fontSize: ((GLOBAL.slot.width - 2 * GLOBAL.screen.borderWidth) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
+			marginVertical: GLOBAL.screen.borderWidth,
+			color: GLOBAL.ui.colors[0],
 		},
 
 		dateText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "PlantasiaMyrtillo-Bold",
-			fontSize: bodyTextSize,
-			paddingBottom: 0.3 * bodyTextSize,
-			color: GLOBAL.uiColors[0],
+			fontFamily: "Trickster-Reg",
+			fontSize: GLOBAL.ui.bodyTextSize,
+			marginTop: -5,
+			paddingBottom: 0.3 * GLOBAL.ui.bodyTextSize,
+			color: GLOBAL.ui.colors[0],
 		},
 
 		actualDateText: {
-			fontFamily: "RandomWikiSerexine-Regular",
-			color: BODY?.colors[0],
+			fontFamily: "Trickster-Reg",
+			color: ActiveBody?.colors[0],
 		},
 
 		cityTextContainer: {
@@ -253,15 +258,10 @@ export default function HomeScreen() {
 			width: "100%",
 		},
 
-		cityText: {
-			width: "100%",
-			textAlign: "center",
-			fontFamily: "RandomWikiSerexine-Regular",
-			// fontSize: ((GLOBAL.slotWidth / 2) / cityText.length) * 2,
-			fontSize: bodyTextSize,
-			paddingBottom: 0.7 * bodyTextSize,
-			marginBottom: "auto",
-			color: GLOBAL.uiColors[0],
+		cityTextSvg: {
+			position: "absolute",
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
 		},
 	});
 
@@ -269,24 +269,75 @@ export default function HomeScreen() {
 	//* Components
 	return (
 		<View style={styles.content}>
-			<Image style={styles.glow} source={require("../assets/images/glow.png")} />
+			{/* <Image style={styles.glow} source={require("../assets/images/glow.png")} /> */}
 			<View style={styles.spriteSheetContainer} {...panResponder.panHandlers}>
-				<Image style={styles.spriteSheetImg} source={BODY?.spriteSheet} />
+				<Image style={styles.spriteSheetImg} source={ActiveBody?.spriteSheet} />
+			</View>
+			<View style={styles.bodyShadow} pointerEvents="none">
+				<Image style={styles.bodyShadowImg} source={require("../assets/images/shadow.png")} />
 			</View>
 
 			<View style={styles.timeContainer}>
 				<Text style={styles.nextText}>
-					Your next <Text style={styles.nextBodyTime}>{BODY?.name} Time</Text> will occur at
+					{ActiveLocation.isBodyTimeNow ? "It's " : "Your next "}
+					<Text style={styles.nextBodyTime}>{ActiveBody?.name} Time</Text>
+					{ActiveLocation.isBodyTimeNow ? "" : " will occur at"}
 				</Text>
 
-				<Text style={styles.timeText}>{bodyTime}</Text>
+				<Text style={styles.timeText}>{ActiveLocation.nextBodyTime}</Text>
 
-				<Text style={styles.dateText}>
-					on <Text style={styles.actualDateText}>{bodyTimeDate}</Text>
-				</Text>
+				{!ActiveLocation.isBodyTimeNow && (
+					<Text style={styles.dateText}>
+						on <Text style={styles.actualDateText}>{ActiveLocation.nextBodyDateLong}</Text>
+					</Text>
+				)}
 			</View>
 
-			<Text style={styles.cityText}>{cityText}</Text>
+			{/* Curved city text */}
+			<Svg style={styles.cityTextSvg} viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}>
+				<Path id="semi-ellipse-city" fill="transparent" d={`
+					M ${locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+					A ${GLOBAL.slot.ellipseSemiMajor - locationNameTextOffset} ${GLOBAL.slot.ellipseSemiMinor - locationNameTextOffset}
+					0 0 0
+					${GLOBAL.slot.width - locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+				`}/>
+
+				<SvgText
+					fill={ActiveBody?.colors[0]}
+					fontFamily="Trickster-Reg"
+					fontSize={locationNameTextSize}
+					letterSpacing="1"
+					textAnchor="middle"
+				>
+					<TextPath href="#semi-ellipse-city" startOffset="58%">
+						<TSpan>{ActiveLocation.name}</TSpan>
+					</TextPath>
+				</SvgText>
+
+				{(ActiveLocationIndex == 0) && (
+					<>
+						<Path id="semi-ellipse-cur-loc" fill="transparent" d={`
+							M ${curLocTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+							A ${GLOBAL.slot.ellipseSemiMajor - curLocTextOffset} ${GLOBAL.slot.ellipseSemiMinor - curLocTextOffset}
+							0 0 0
+							${GLOBAL.slot.width - curLocTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+						`}/>
+
+						<SvgText
+							key={`cur-loc-${curLocTextOffset}`} //? Forces text update on location change
+							fill={GLOBAL.ui.colors[0]}
+							fontFamily="Trickster-Reg-Arrow"
+							fontSize={0.6 * GLOBAL.ui.bodyTextSize}
+							letterSpacing="0.5"
+							textAnchor="middle"
+						>
+							<TextPath href="#semi-ellipse-cur-loc" startOffset="58%">
+								<TSpan>¹ You are here!</TSpan>
+							</TextPath>
+						</SvgText>
+					</>
+				)}
+			</Svg>
 		</View>
 	);
 }

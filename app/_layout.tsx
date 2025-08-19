@@ -2,6 +2,7 @@ import MaskedView from "@react-native-masked-view/masked-view";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ExpoLocation from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, StatusBar, StyleSheet, View } from "react-native";
 import { Ellipse, Path, Rect, Svg } from "react-native-svg";
@@ -14,24 +15,132 @@ import NotificationsScreen from "./notifications";
 
 
 export default function Layout() {
-	//* Body-ody-ody
-	const BODY = GLOBAL.useBodyStore((s: any) => s.body);
+	//* Global app storage
+	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+
+	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
+
+	const SavedLocations = GLOBAL.useAppStore((state) => state.savedLocations);
+	const EditSavedLocation = GLOBAL.useAppStore((state) => state.editSavedLocation);
+
+	const ActiveLocationIndex = GLOBAL.useAppStore((state) => state.activeLocationIndex);
+	const SetActiveLocationIndex = GLOBAL.useAppStore((state) => state.setActiveLocationIndex);
+	const ActiveLocation = SavedLocations[ActiveLocationIndex];
+
+
+	//* Fonts
+	const [fontsLoaded] = useFonts({
+		"Trickster-Reg": require("../assets/fonts/Trickster/Trickster-Reg.otf"),
+		"Trickster-Reg-Feat": require("../assets/fonts/Trickster/Trickster-Reg-Feat.otf"),
+		"Trickster-Reg-Arrow": require("../assets/fonts/Trickster/Trickster-Reg-Arrow.otf"),
+
+		"Hades-Tall": require("../assets/fonts/Hades/Hades-Tall.ttf"),
+		"Hades-Short": require("../assets/fonts/Hades/Hades-Short.ttf"),
+	});
+
+
+	//* Geolocation
+	const [location, setLocation] = useState<ExpoLocation.LocationGeocodedAddress | null>(null);
+	useEffect(() => {
+		(async () => {
+			try {
+				const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+				if (status !== "granted") {
+					console.log("Permission to access location was denied");
+					return; // bail early
+				}
+
+				const position = await ExpoLocation.getCurrentPositionAsync({});
+				if (!position) {
+					console.log("Failed to get current position");
+					return; // bail early
+				}
+				const lat = position.coords.latitude;
+				const lon = position.coords.longitude;
+				// const lat = 54.028333;
+				// const lon = -93.533611;
+
+				const results = await ExpoLocation.reverseGeocodeAsync({
+					latitude: lat,
+					longitude: lon,
+				});
+				if (!results || results.length === 0) {
+					console.log("Failed to reverse geocode location");
+					return; // bail early
+				}
+
+				const loc = results[0];
+				EditSavedLocation(0, {
+					name: loc?.city ?? loc?.region ?? loc?.country ?? "",
+					lat: lat,
+					lon: lon,
+				});
+
+				setLocation(loc);
+			}
+			catch (err) { console.error("Error fetching location:", err); }
+		})();
+	}, []);
+
+
+	//* Master time calculation
+	useEffect(() => {
+		for (let l = 0; l < SavedLocations.length; l++) {
+			const loc = SavedLocations[l];
+
+			const now = new Date();
+			const next = GLOBAL.findNextBodyTime(now, loc.lat, loc.lon, ActiveBody);
+			const dt = next.getTime() - now.getTime();
+			const threshold = 5 * 60 * 1000; // 5 minutes
+
+			let isBodyTimeNow = false;
+			let nextBodyTime = next.toLocaleTimeString(undefined, {
+				hour: "numeric",
+				minute: "2-digit",
+				hour12: true
+			}).replace(/\s/g, "");
+			const nextBodyDateLong = next.toLocaleDateString(undefined, {
+				weekday: "long",
+				year: "numeric",
+				month: "long",
+				day: "numeric",
+			});
+			const day = String(next.getDate()).padStart(2, "0");
+			const month = String(next.getMonth() + 1).padStart(2, "0");
+			const year = next.getFullYear();
+			const nextBodyDateShort = `${month}/${day}/${year}`;
+
+			if (dt <= threshold) {
+				isBodyTimeNow = true;
+				nextBodyTime = "NOW!";
+			}
+
+			EditSavedLocation(l, {
+				isBodyTimeNow: isBodyTimeNow,
+				nextBodyTime: nextBodyTime,
+				nextBodyDateLong: nextBodyDateLong,
+				nextBodyDateShort: nextBodyDateShort,
+			});
+		}
+	}, [location]);
 
 
 	//* Stars
-	const numStars = 60;
+	const numStars = 200;
 	const numStarLayers = 3;
-	const starDimensions = [4, 2.5, 1];
-	const starDurations = [8, 12, 16]; // Seconds
+	const starDimensions = [7, 4.5, 2];
+	const starDurations = [20, 30, 40]; // Seconds
 	const starAngle = 10;
 	const starAngleTan = Math.tan((starAngle * Math.PI) / 180);
 	const starsRef = useRef(
 		Array(numStars)
 		.fill(null)
 		.map(() => ({
-			layer: Math.floor(Math.random() * numStarLayers) + 1,
+			layer: Math.floor(Math.random() * numStarLayers),
 			animX: new Animated.Value(0),
-			animY: new Animated.Value(Math.random() * GLOBAL.slotHeight),
+			animY: new Animated.Value(Math.random() * GLOBAL.slot.height),
 			isFirstRun: true,
 		}))
 	).current;
@@ -42,23 +151,23 @@ export default function Layout() {
 			let startX: number;
 
 			if (star.isFirstRun) {
-				startX = Math.random() * GLOBAL.slotWidth;
+				startX = Math.random() * GLOBAL.slot.width;
 				star.isFirstRun = false;
 			}
-			else startX = -starDimensions[star.layer - 1];
+			else startX = -starDimensions[star.layer];
 
-			const distance = GLOBAL.slotWidth - startX;
-			const duration = (distance / GLOBAL.slotWidth) * (starDurations[star.layer - 1] * 1000);
+			const distance = GLOBAL.slot.width - startX;
+			const duration = (distance / GLOBAL.slot.width) * (starDurations[star.layer] * 1000);
 
 			star.animX.setValue(startX);
 
 			Animated.timing(star.animX, {
-				toValue: GLOBAL.slotWidth,
+				toValue: GLOBAL.slot.width,
 				duration,
 				easing: Easing.linear,
 				useNativeDriver: true,
 			}).start(() => {
-				star.animY.setValue(Math.random() * GLOBAL.slotHeight);
+				star.animY.setValue(Math.random() * GLOBAL.slot.height);
 				animateStar(index);
 			});
 		}
@@ -74,15 +183,12 @@ export default function Layout() {
 
 
 	//* Tabs/navigation
-	// Tab 3 (index 2) is pressed by default
-	const [activeTab, setActiveTab] = useState(2);
-
-	const tabIconDimension: number = 0.12 * GLOBAL.slotWidth;
-	const tabIcon1n5X: number = 0.83 * GLOBAL.slotWidth;
-	const tabIcon1n5Y: number = 0.03 * GLOBAL.slotWidth;
-	const tabIcon2n4X: number = 0.435 * GLOBAL.slotWidth;
-	const tabIcon2n4Y: number = 0.21 * GLOBAL.slotWidth;
-	const tabIcon3X: number = 0.26 * GLOBAL.slotWidth;
+	const tabIconDimension: number = 0.12 * GLOBAL.slot.width;
+	const tabIcon1n5X: number = 0.83 * GLOBAL.slot.width;
+	const tabIcon1n5Y: number = 0.03 * GLOBAL.slot.width;
+	const tabIcon2n4X: number = 0.435 * GLOBAL.slot.width;
+	const tabIcon2n4Y: number = 0.21 * GLOBAL.slot.width;
+	const tabIcon3X: number = 0.26 * GLOBAL.slot.width;
 
 	const tabArray: {
 		key: string;
@@ -119,7 +225,7 @@ export default function Layout() {
 			handlePath: "m 40.927908,44.672795 c 5.780709,0.420713 11.959634,0.45119 18.144703,3.29e-4 a 2.9194361,2.9194361 124.99011 0 0 2.580462,-3.686635 l -3.451166,-12.87776 a 4.351552,4.351552 35.877834 0 0 -4.400215,-3.18263 c -2.563191,0.09924 -5.084073,0.09438 -7.598992,-0.0091 a 4.3406186,4.3406186 144.19158 0 0 -4.399673,3.174127 C 40.65114,32.3896 39.499252,36.688038 38.347364,40.986475 a 2.9191774,2.9191774 55.006726 0 0 2.580544,3.68632 z",
 			unpressedSrc: require("../assets/images/tabs/unpressed/3.png"),
 			pressedSrc: require("../assets/images/tabs/pressed/3.png"),
-			iconPath: BODY?.icon,
+			iconPath: ActiveBody?.icon,
 			iconStyle: {
 				marginTop: tabIcon3X,
 			},
@@ -150,18 +256,9 @@ export default function Layout() {
 
 	// Preload tab images on mount
 	useEffect(() => {
-		const images = tabArray.flatMap(tab => [tab.unpressedSrc, tab.pressedSrc]);
-		images.forEach(img => Asset.fromModule(img).downloadAsync());
+		const tabImgs = tabArray.flatMap(tab => [tab.unpressedSrc, tab.pressedSrc]);
+		tabImgs.forEach(img => Asset.fromModule(img).downloadAsync());
 	}, []);
-
-
-	//* Fonts
-	const [loaded, error] = useFonts({
-		"RandomWikiSerexine-Regular": require("../assets/fonts/RandomWikiSerexine-Regular.otf"),
-		"PlantasiaMyrtillo-Bold": require("../assets/fonts/PlantasiaMyrtillo-Bold.otf"),
-		"Kulture-Regular": require("../assets/fonts/Kulture-Regular.otf"),
-		"outward-semi": require("../assets/fonts/outward-semi.ttf"),
-	});
 
 
 	//* Stylesheet
@@ -169,17 +266,17 @@ export default function Layout() {
 		screen: {
 			flex: 1,
 			alignItems: "center",
-			paddingTop: GLOBAL.screenTopOffset + GLOBAL.screenBorderWidth,
+			paddingTop: GLOBAL.screen.topOffset + GLOBAL.screen.borderWidth,
 		},
 
 		slotView: {
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.slotHeight,
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
 		},
 
 		slotMask: {
 			flex: 1,
-			borderRadius: GLOBAL.screenBorderRadius.ios - GLOBAL.screenBorderWidth,
+			borderRadius: GLOBAL.screen.borderRadius.ios - GLOBAL.screen.borderWidth,
 			borderBottomLeftRadius: 0,
 			borderBottomRightRadius: 0,
 			overflow: "hidden",
@@ -187,23 +284,25 @@ export default function Layout() {
 
 		slotBG: {
 			position: "absolute",
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.slotHeight,
-			backgroundColor: GLOBAL.uiColors[1]
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
+			backgroundColor: GLOBAL.ui.colors[1]
 		},
 
-		star: {
+		starField: {
 			position: "absolute",
-			opacity: 0.5,
-			backgroundColor: "white",
-			borderRadius: "50%",
+			width: GLOBAL.slot.width,
+			height: GLOBAL.slot.height,
+			opacity: 0.3,
 		},
+
+		star: { position: "absolute" },
 
 		slotCarousel: {
 			flex: 1,
 			flexDirection: "row",
-			width: 5 * GLOBAL.slotWidth,
-			marginLeft: -activeTab * GLOBAL.slotWidth,
+			width: 5 * GLOBAL.slot.width,
+			marginLeft: -ActiveTab * GLOBAL.slot.width,
 		},
 
 		shadow: {
@@ -215,11 +314,11 @@ export default function Layout() {
 
 		tabContainer: {
 			position: "absolute",
-			bottom: GLOBAL.screenBottomOffset + GLOBAL.screenBorderWidth,
+			bottom: GLOBAL.screen.bottomOffset + GLOBAL.screen.borderWidth,
 			justifyContent: "center",
 			alignItems: "center",
-			width: GLOBAL.slotWidth,
-			height: GLOBAL.navHeight,
+			width: GLOBAL.slot.width,
+			height: GLOBAL.nav.height,
 		},
 
 		tabHandle: {
@@ -254,47 +353,55 @@ export default function Layout() {
 
 	//* Components
 	return (
-		<LinearGradient style={styles.screen} colors={[BODY?.colors[0], BODY?.colors[1]]}>			
+		<LinearGradient style={styles.screen} colors={[ActiveBody?.colors[0], ActiveBody?.colors[1]]}>			
 			<StatusBar />
 
 			<View style={[styles.slotView, styles.shadow]}>
 				<MaskedView
 					style={styles.slotMask}
 					maskElement={
-						<Svg width={GLOBAL.slotWidth} height={GLOBAL.slotHeight}>
+						<Svg width={GLOBAL.slot.width} height={GLOBAL.slot.height}>
 							<Rect
 								x="0"
 								y="0"
 								width="100%"
-								height={GLOBAL.slotHeight - GLOBAL.slotEllipseSemiMinorAxis}
+								height={GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
 							/>
 							<Ellipse
 								cx="50%"
-								cy={GLOBAL.slotHeight - GLOBAL.slotEllipseSemiMinorAxis}
-								rx={GLOBAL.slotEllipseSemiMajorAxis}
-								ry={GLOBAL.slotEllipseSemiMinorAxis}
+								cy={GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+								rx={GLOBAL.slot.ellipseSemiMajor}
+								ry={GLOBAL.slot.ellipseSemiMinor}
 							/>
 						</Svg>
 					}
 				>
 					<View style={styles.slotBG}></View>
 
-					{starsRef.map((star, i) => {
-						const translateY = Animated.add(star.animY, Animated.multiply(star.animX, starAngleTan));
-						return (
-							<Animated.View
-								key={`star-${i}`}
-								style={[
-									styles.star,
-									{
-										width: starDimensions[star.layer],
-										height: starDimensions[star.layer],
-										transform: [{ translateX: star.animX }, { translateY }],
-									}
-								]}
-							/>
-						);
-					})}
+					{/* Star field */}
+					{/* <View style={styles.starField}>
+						{starsRef.map((star, i) => {
+							const translateY = Animated.add(star.animY, Animated.multiply(star.animX, starAngleTan));
+							return (
+								<Animated.Image
+									key={`star-${i}`}
+									style={[
+										styles.star,
+										{
+											width: starDimensions[star.layer],
+											height: starDimensions[star.layer],
+											transform: [
+												{translateX: star.animX},
+												{translateY},
+												// {rotate: Math.random() * 360 + "deg"},
+											],
+										}
+									]}
+									source={require("../assets/images/star.png")}
+								/>
+							);
+						})}
+					</View> */}
 
 					<View style={[styles.slotCarousel]}>
 						<NotificationsScreen />
@@ -307,24 +414,15 @@ export default function Layout() {
 			</View>
 
 			<View style={styles.tabContainer}>
-				{/* SVGs with drop shadows */}
-				{tabArray.map((tab, i) => (
-					<Svg
-						key={`${tab.key}-shadow`}
-						style={i !== activeTab ? [styles.shadow, styles.tabHandle] : styles.tabHandle}
-						viewBox={`0 0 100 ${GLOBAL.navRatio * 100}`}
-					>
-						<Path fill="green" d={tab.handlePath} />
-					</Svg>
-				))}
-
 				{/* Pressable SVG path tabs */}
-				<Svg style={styles.tabHandle} viewBox={`0 0 100 ${GLOBAL.navRatio * 100}`}>
+				<Svg style={styles.tabHandle} viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}>
 					{tabArray.map((tab, i) => (
 						<Path
 							key={`${tab.key}-path`}
-							fill={BODY?.colors[0]}
-							onPress={() => { setActiveTab(i) }}
+							fill={ActiveBody?.colors[0]}
+							onPress={() => {
+								SetActiveTab(i);
+							}}
 							d={tab.handlePath}
 						/>
 					))}
@@ -334,14 +432,14 @@ export default function Layout() {
 				{tabArray.map((tab, i) => (
 					<Image
 						key={`${tab.key}-unpressed`}
-						style={[styles.tabBtnImage, { opacity: i === activeTab ? 0 : 1 }]}
+						style={[styles.tabBtnImage, { opacity: i === ActiveTab ? 0 : 1 }]}
 						source={tab.unpressedSrc}
 					/>
 				))}
 				{tabArray.map((tab, i) => (
 					<Image
 						key={`${tab.key}-pressed`}
-						style={[styles.tabBtnImage, { opacity: i === activeTab ? 1 : 0 }]}
+						style={[styles.tabBtnImage, { opacity: i === ActiveTab ? 1 : 0 }]}
 						source={tab.pressedSrc}
 					/>
 				))}
@@ -354,8 +452,8 @@ export default function Layout() {
 							style={[
 								styles.tabIcon,
 								tab.iconStyle,
-								i === activeTab ? {
-									shadowColor: GLOBAL.uiColors[0],
+								i === ActiveTab ? {
+									shadowColor: GLOBAL.ui.colors[0],
 									shadowOpacity: 0.9,
 									shadowRadius: 5,
 									shadowOffset: {width: 0, height: 0},
@@ -366,8 +464,8 @@ export default function Layout() {
 							viewBox="0 0 100 100"
 						>
 							<Path
-								fill={i === activeTab ? GLOBAL.uiColors[0] : GLOBAL.uiColors[1]}
-								stroke={i === activeTab ? GLOBAL.uiColors[0] : GLOBAL.uiColors[1]}
+								fill={i === ActiveTab ? GLOBAL.ui.colors[0] : GLOBAL.ui.colors[1]}
+								stroke={i === ActiveTab ? GLOBAL.ui.colors[0] : GLOBAL.ui.colors[1]}
 								strokeWidth={2}
 								d={tab.iconPath}
 							/>
