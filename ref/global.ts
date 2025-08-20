@@ -42,6 +42,9 @@ export const slot = {
 	get ellipseSemiMinor() {
 		return this.ellipseSemiMajor / 2 + screen.borderWidth;
 	},
+	get borderRadius() {
+		return screen.borderRadius.ios - screen.borderWidth;
+	},
 	skew: -10,
 };
 

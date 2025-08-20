@@ -23,6 +23,8 @@ export default function HomeScreen() {
 	// const bodyDiameter = GLOBAL.slot.width - 2 * (GLOBAL.screen.borderRadius.ios - GLOBAL.screen.borderWidth);
 	const bodyDiameter = GLOBAL.slot.width;
 	const glowDiameter = 1.4 * bodyDiameter;
+	const bodyClip = 2;
+	const shadowWallOffset = 50;
 
 	const bodyFrameWidth = 20;
 	const bodyFrameHeight = 20;
@@ -56,7 +58,14 @@ export default function HomeScreen() {
 
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => true,
+			onStartShouldSetPanResponder: (evt) => {
+				const x = evt.nativeEvent.pageX - GLOBAL.screen.borderWidth;
+				const y = evt.nativeEvent.pageY - GLOBAL.screen.topOffset - GLOBAL.screen.borderWidth;
+				const r = (bodyDiameter - bodyClip) / 2;
+				const dx = x - r;
+				const dy = y;
+				return Math.sqrt(dx * dx + dy * dy) <= r; //? Only accept touches inside circle
+			},
 			onPanResponderGrant: (evt) => {
 				setIsDragging(true);
 				dragStartFrameRef.current = bodyFrameRef.current;
@@ -170,22 +179,24 @@ export default function HomeScreen() {
 			overflow: "hidden",
 		},
 
-		glow: {
-			position: "absolute",
-			top: -glowDiameter / 2,
-			opacity: 0.75,
-			width: glowDiameter,
-			height: glowDiameter,
-		},
-
 		spriteSheetContainer: {
 			position: "absolute",
-			top: -bodyDiameter / 2,
-			width: bodyDiameter,
-			height: bodyDiameter,
+			justifyContent: "center",
+			alignItems: "center",
+			top: -(bodyDiameter - bodyClip) / 2,
+			width: bodyDiameter - bodyClip,
+			height: bodyDiameter - bodyClip,
+			borderRadius: "50%",
 			transform: [{rotate: `${ActiveBody?.axialTilt}deg`}],
 			overflow: "hidden",
 			zIndex: 9998,
+		},
+
+		spriteSheetWrapper: {
+			position: "absolute",
+			width: bodyDiameter,
+			height: bodyDiameter,
+			// transform: [{scaleX: -1}],
 		},
 
 		spriteSheetImg: {
@@ -197,15 +208,20 @@ export default function HomeScreen() {
 
 		bodyShadow: {
 			position: "absolute",
-			top: 0,
-			width: bodyDiameter,
-			height: 0.3 * bodyDiameter,
+			top: -shadowWallOffset,
+			width: GLOBAL.slot.width + 2 * shadowWallOffset,
+			height: GLOBAL.slot.width + 2 * shadowWallOffset,
 			zIndex: 9999,
+			pointerEvents: "none",
 		},
 
-		bodyShadowImg: {
+		bodyShadowSvg: {
 			width: "100%",
 			height: "100%",
+			shadowColor: GLOBAL.ui.colors[1],
+			shadowRadius: 40,
+			shadowOpacity: 1,
+			shadowOffset: { width: 0, height: 0 },
 		},
 
 		timeContainer: {
@@ -269,13 +285,37 @@ export default function HomeScreen() {
 	//* Components
 	return (
 		<View style={styles.content}>
-			{/* <Image style={styles.glow} source={require("../assets/images/glow.png")} /> */}
 			<View style={styles.spriteSheetContainer} {...panResponder.panHandlers}>
-				<Image style={styles.spriteSheetImg} source={ActiveBody?.spriteSheet} />
+				<View style={styles.spriteSheetWrapper}>
+					<Image style={styles.spriteSheetImg} source={ActiveBody?.spriteSheet} />
+				</View>
 			</View>
-			<View style={styles.bodyShadow} pointerEvents="none">
-				<Image style={styles.bodyShadowImg} source={require("../assets/images/shadow.png")} />
-			</View>
+
+			{Array.from({ length: 3 }).map((_, i) => (
+				<View key={`shadow-${i}`} style={styles.bodyShadow} pointerEvents="none">
+					<Svg
+						style={styles.bodyShadowSvg}
+						viewBox={`0 0 ${GLOBAL.slot.width + 2 * shadowWallOffset} ${GLOBAL.slot.width + 2 * shadowWallOffset}`}
+					>
+						<Path
+							fill={GLOBAL.ui.colors[1]}
+							d={`
+								M 0,0
+								h ${GLOBAL.slot.width + 2 * shadowWallOffset}
+								v ${GLOBAL.slot.width / 2 + shadowWallOffset}
+								h ${-shadowWallOffset}
+								v ${-GLOBAL.slot.width / 2 + GLOBAL.slot.borderRadius}
+								q 0,${-GLOBAL.slot.borderRadius} ${-GLOBAL.slot.borderRadius},${-GLOBAL.slot.borderRadius}
+								h ${-GLOBAL.slot.width + 2 * GLOBAL.slot.borderRadius}
+								q ${-GLOBAL.slot.borderRadius},0 ${-GLOBAL.slot.borderRadius},${GLOBAL.slot.borderRadius}
+								v ${GLOBAL.slot.width / 2 - GLOBAL.slot.borderRadius}
+								h ${-shadowWallOffset}
+								z
+							`}
+						/>
+					</Svg>
+				</View>
+			))}
 
 			<View style={styles.timeContainer}>
 				<Text style={styles.nextText}>
