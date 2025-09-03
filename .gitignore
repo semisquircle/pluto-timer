@@ -42,3 +42,6 @@ app-example
 **/*.txt
 **/*.html
 **/*.kra
+**/*.exe
+**/uncompressed
+**/bodies-originals

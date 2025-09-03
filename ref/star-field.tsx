@@ -1,92 +1,98 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Canvas, Circle } from "@shopify/react-native-skia";
+import React, { useEffect, useRef, useState } from "react";
+import { StyleSheet } from "react-native";
+import { useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import * as GLOBAL from "../ref/global";
 
-export default function StarField() {
-	const numStars = 200;
+
+type Star = {
+	layer: number;
+	x: number;
+	y: number;
+	speed: number;
+	size: number;
+};
+
+function createStars(
+	numStars: number,
+	numStarLayers: number,
+	starDimensions: number[],
+	starDurations: number[]
+) {
+	const stars: Star[] = [];
+	for (let i = 0; i < numStars; i++) {
+		const layer = Math.floor(Math.random() * numStarLayers);
+		const size = starDimensions[layer];
+		const speed = GLOBAL.slot.width / (starDurations[layer] * 1000);
+		stars.push({
+			layer,
+			x: Math.random() * GLOBAL.slot.width,
+			y: Math.random() * GLOBAL.slot.height,
+			speed,
+			size,
+		});
+	}
+	return stars;
+}
+
+
+type StarFieldProps = {
+	numStars: number;
+	starAngle: number;
+};
+
+export default function StarField({ numStars, starAngle }: StarFieldProps) {
 	const numStarLayers = 3;
 	const starDimensions = [7, 4.5, 2];
 	const starDurations = [20, 30, 40]; // Seconds
-	const starAngle = 10;
 	const starAngleTan = Math.tan((starAngle * Math.PI) / 180);
 
-	const starsRef = useRef(
-		Array(numStars)
-			.fill(null)
-			.map(() => ({
-				layer: Math.floor(Math.random() * numStarLayers),
-				animX: new Animated.Value(0),
-				animY: new Animated.Value(Math.random() * GLOBAL.slot.height),
-				isFirstRun: true,
-			}))
-	).current;
+	const stars = useRef(createStars(numStars, numStarLayers, starDimensions, starDurations)).current;
+	const [, forceTick] = useState(0);
+	const progress = useSharedValue(0);
 
 	useEffect(() => {
-		function animateStar(index: number) {
-			const star = starsRef[index];
-			let startX: number;
+		progress.value = withRepeat(withTiming(1, { duration: 1000 / GLOBAL.ui.fps }), -1, false);
+		const starInterval = setInterval(() => {
+			for (let star of stars) {
+				const delta = 1000 / GLOBAL.ui.fps;
+				star.x += star.speed * delta;
+				star.y += star.speed * delta * starAngleTan;
 
-			if (star.isFirstRun) {
-				startX = Math.random() * GLOBAL.slot.width;
-				star.isFirstRun = false;
-			} else {
-				startX = -starDimensions[star.layer];
+				if (star.x > GLOBAL.slot.width + star.size) {
+					star.x = -star.size;
+					star.y = Math.random() * GLOBAL.slot.height;
+				}
+				if (star.y > GLOBAL.slot.height + star.size) {
+					star.y = Math.random() * GLOBAL.slot.height;
+				}
 			}
-
-			const distance = GLOBAL.slot.width - startX;
-			const duration =
-				(distance / GLOBAL.slot.width) *
-				(starDurations[star.layer] * 1000);
-
-			star.animX.setValue(startX);
-
-			Animated.timing(star.animX, {
-				toValue: GLOBAL.slot.width,
-				duration,
-				easing: Easing.linear,
-				useNativeDriver: true,
-			}).start(() => {
-				star.animY.setValue(Math.random() * GLOBAL.slot.height);
-				animateStar(index);
-			});
-		}
-
-		for (let i = 0; i < numStars; i++) animateStar(i);
-
-		return () => {
-			for (let i = 0; i < numStars; i++) {
-				starsRef[i].animX.stopAnimation &&
-					starsRef[i].animX.stopAnimation();
-			}
-		};
-	}, [starsRef]);
+			forceTick(t => t + 1);
+		}, 1000 / GLOBAL.ui.fps);
+		return () => clearInterval(starInterval);
+	}, [progress, starAngleTan, stars]);
 
 	return (
-		<View style={styles.starField}>
-			{starsRef.map((star, i) => {
-				const translateY = Animated.add(
-					star.animY,
-					Animated.multiply(star.animX, starAngleTan)
-				);
-				return (
-					<Animated.Image
-						key={`star-${i}`}
-						style={[
-							styles.star,
-							{
-								width: starDimensions[star.layer],
-								height: starDimensions[star.layer],
-								transform: [
-									{ translateX: star.animX },
-									{ translateY },
-								],
-							},
-						]}
-						source={require("../assets/images/star.png")}
-					/>
-				);
-			})}
-		</View>
+		<Canvas style={styles.starField}>
+			{stars.map((star, i) => (
+				<Circle
+					key={`star-${i}`}
+					cx={star.x}
+					cy={star.y}
+					r={star.size / 2}
+					color="white"
+				/>
+
+				// <Image
+				// 	key={`star-${i}`}
+				// 	image={useImage(require("../assets/images/star.png"))}
+				// 	x={star.x}
+				// 	y={star.y}
+				// 	width={star.size}
+				// 	height={star.size}
+				// />
+			))}
+		</Canvas>
 	);
 }
 
@@ -96,9 +102,5 @@ const styles = StyleSheet.create({
 		width: GLOBAL.slot.width,
 		height: GLOBAL.slot.height,
 		opacity: 0.3,
-	},
-	
-	star: {
-		position: "absolute",
 	},
 });

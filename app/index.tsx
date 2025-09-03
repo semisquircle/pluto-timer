@@ -1,7 +1,69 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Image, PanResponder, StyleSheet, Text, View } from "react-native";
-import { Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
+import { SlotTopShadow } from "@/ref/slot-shadows";
+import { Image as ExpoImage } from "expo-image";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
+import { Defs, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 import * as GLOBAL from "../ref/global";
+
+
+//* Fonts
+const bodyTimeFontPrefs: any[] = [
+	{
+		name: "Hades-Tall",
+		spacing: 1,
+		glyphHeight: 57.5,
+		glyphWidths: {
+			"A": 12,
+			"M": 18.5,
+			"N": 18.5,
+			"O": 12,
+			"P": 12,
+			"W": 18.5,
+
+			"0": 12,
+			"1": 5.5,
+			"2": 12,
+			"3": 12,
+			"4": 12,
+			"5": 12,
+			"6": 12,
+			"7": 12,
+			"8": 12,
+			"9": 12,
+
+			":": 5.5,
+			"!": 5.5
+		}
+	},
+	{
+		name: "Hades-Short",
+		spacing: 1.5,
+		glyphHeight: 51.5,
+		glyphWidths: {
+			"A": 12.5,
+			"M": 19.5,
+			"N": 19.5,
+			"O": 12.5,
+			"P": 12.5,
+			"W": 19.5,
+
+			"0": 12.5,
+			"1": 5.5,
+			"2": 12.5,
+			"3": 12.5,
+			"4": 12.5,
+			"5": 12.5,
+			"6": 12.5,
+			"7": 12.5,
+			"8": 12.5,
+			"9": 12.5,
+
+			":": 5.5,
+			"!": 5.5
+		}
+	}
+];
+
 
 export default function HomeScreen() {
 	//* Global app storage
@@ -11,64 +73,57 @@ export default function HomeScreen() {
 	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
 	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
 
-	const SavedLocations = GLOBAL.useAppStore((state) => state.savedLocations);
-	const EditSavedLocation = GLOBAL.useAppStore((state) => state.editSavedLocation);
+	const SavedCities = GLOBAL.useAppStore((state) => state.savedCities);
+	const PushSavedCity = GLOBAL.useAppStore((state) => state.pushSavedCity);
+	const UnshiftSavedCity = GLOBAL.useAppStore((state) => state.unshiftSavedCity);
 
-	const ActiveLocationIndex = GLOBAL.useAppStore((state) => state.activeLocationIndex);
-	const SetActiveLocationIndex = GLOBAL.useAppStore((state) => state.setActiveLocationIndex);
-	const ActiveLocation = SavedLocations[ActiveLocationIndex];
+	const ActiveCityIndex = GLOBAL.useAppStore((state) => state.activeCityIndex);
+	const SetActiveCityIndex = GLOBAL.useAppStore((state) => state.setActiveCityIndex);
+	const ActiveCity = SavedCities[ActiveCityIndex];
 
 
 	//* Body rotation animation/dragging
-	// const bodyDiameter = GLOBAL.slot.width - 2 * (GLOBAL.screen.borderRadius.ios - GLOBAL.screen.borderWidth);
 	const bodyDiameter = GLOBAL.slot.width;
-	const glowDiameter = 1.4 * bodyDiameter;
-	const bodyClip = 2;
-	const shadowWallOffset = 50;
-
 	const bodyFrameWidth = 20;
 	const bodyFrameHeight = 20;
-	const totalFrames = bodyFrameWidth * bodyFrameHeight;
-
+	const totalBodyFrames = bodyFrameWidth * bodyFrameHeight;
 	const bodyAnimFPS = 30;
-	const intervalRef = useRef<any>(null);
-	const bodyFrameRef = useRef(0);
-	const [, forceBodyRotAnim] = useState(0);
-	const [isDragging, setIsDragging] = useState<boolean>(false);
+
+	const [isBodyPlaceholderImgDisplayed, setIsBodyPlaceholderImgDisplayed] = useState<boolean>(false);
+	const [isBodySpriteSheetDisplayed, setIsBodySpriteSheetDisplayed] = useState<boolean>(false);
+	const bodyIntervalRef = useRef<any>(null);
+	const [bodyFrame, setBodyFrame] = useState<number>(0);
+	const [isDraggingBody, setIsDraggingBody] = useState<boolean>(false);
 	const dragStartFrameRef = useRef(0);
 	const dragStartXRef = useRef(0);
 	const dragStartYRef = useRef(0);
 
 	// Ensures negative frame numbers get wrapped back around
-	function modFrame(n: number) {
-		let m = totalFrames - 1;
-		return ((n % m) + m) % m;
-	}
+	const modFrame = (n: number) => ((n % totalBodyFrames) + totalBodyFrames) % totalBodyFrames;
 
 	useEffect(() => {
-		if (!isDragging) {
-		intervalRef.current = setInterval(() => {
-			bodyFrameRef.current = modFrame(bodyFrameRef.current - 1);
-			forceBodyRotAnim((f) => f + 1);
-		}, 1000 / bodyAnimFPS);
-		} else clearInterval(intervalRef.current);
+		if (isBodySpriteSheetDisplayed && !isDraggingBody) {
+			bodyIntervalRef.current = setInterval(() => {
+				setBodyFrame(prev => modFrame(prev - 1));
+			}, 1000 / bodyAnimFPS);
+		}
+		else clearInterval(bodyIntervalRef.current);
+		return () => clearInterval(bodyIntervalRef.current);
+	}, [isBodySpriteSheetDisplayed, isDraggingBody]);
 
-		return () => clearInterval(intervalRef.current);
-	}, [isDragging]);
-
-	const panResponder = useRef(
+	const bodyPanResponder = useRef(
 		PanResponder.create({
 			onStartShouldSetPanResponder: (evt) => {
 				const x = evt.nativeEvent.pageX - GLOBAL.screen.borderWidth;
 				const y = evt.nativeEvent.pageY - GLOBAL.screen.topOffset - GLOBAL.screen.borderWidth;
-				const r = (bodyDiameter - bodyClip) / 2;
+				const r = bodyDiameter / 2;
 				const dx = x - r;
 				const dy = y;
 				return Math.sqrt(dx * dx + dy * dy) <= r; //? Only accept touches inside circle
 			},
 			onPanResponderGrant: (evt) => {
-				setIsDragging(true);
-				dragStartFrameRef.current = bodyFrameRef.current;
+				setIsDraggingBody(true);
+				dragStartFrameRef.current = bodyFrame;
 				dragStartXRef.current = evt.nativeEvent.pageX;
 				dragStartYRef.current = evt.nativeEvent.pageY;
 			},
@@ -83,90 +138,82 @@ export default function HomeScreen() {
 				const dragAlongTilt = dx * Math.cos(theta) + dy * Math.sin(theta);
 
 				const dragChangeXAdjusted = Math.round(-dragAlongTilt / 2); // Negative to match original direction
-				bodyFrameRef.current = modFrame(dragStartFrameRef.current + dragChangeXAdjusted);
-				forceBodyRotAnim((f) => f + 1);
+				setBodyFrame(modFrame(dragStartFrameRef.current + dragChangeXAdjusted));
 			},
 			onPanResponderRelease: () => {
-				setIsDragging(false);
+				setIsDraggingBody(false);
 			},
 		})
 	).current;
 
 
+	//* Finger animation
+	const fingerTranslateDistance = 100;
+	const fingerTheta = ActiveBody?.axialTilt * Math.PI / 180;
+	const fingerDx = Math.cos(fingerTheta);
+	const fingerDy = Math.sin(fingerTheta);
+
+	// Timing (in seconds)
+	const fingerFadeDuration = 0.5;
+	const fingerTranslateDuration = 1;
+	const fingerAnimInterval = 30;
+
+	const fingerOpacity = useRef(new Animated.Value(0)).current;
+	const fingerTranslate = useRef(new Animated.Value(0)).current;
+
+	useEffect(() => {
+		const animateFinger = () => {
+			fingerOpacity.setValue(0);
+			fingerTranslate.setValue(0);
+
+			Animated.sequence([
+				Animated.timing(fingerOpacity, {
+					toValue: 1,
+					duration: fingerFadeDuration * 1000,
+					useNativeDriver: true,
+				}),
+				Animated.timing(fingerTranslate, {
+					toValue: 1,
+					duration: fingerTranslateDuration * 1000,
+					useNativeDriver: true,
+				}),
+				Animated.timing(fingerOpacity, {
+					toValue: 0,
+					duration: fingerFadeDuration * 1000,
+					useNativeDriver: true,
+				}),
+			]).start(() => {
+				setTimeout(animateFinger, fingerAnimInterval * 1000);
+			});
+		};
+
+		// animateFinger();
+
+		const initialTimeout = setTimeout(animateFinger, fingerAnimInterval * 1000);
+		return () => clearTimeout(initialTimeout);
+	}, []);
+
+
 	//* Text fitting
-	const bodyTimeFontPrefs: any[] = [
-		{
-			name: "Hades-Tall",
-			spacing: 1,
-			glyphHeight: 57.5,
-			glyphWidths: {
-				"A": 12,
-				"M": 18.5,
-				"N": 18.5,
-				"O": 12,
-				"P": 12,
-				"W": 18.5,
+	const nextBodyTime = ActiveCity.getClockTime();
+	const nextBodyTimeText = ActiveCity.isBodyTimeNow() ? "NOW!" : nextBodyTime;
+	const nextBodyDate = ActiveCity.getDateLong();
+	const bodyTimeFontPref = bodyTimeFontPrefs[ActiveCity.isBodyTimeNow() ? 1 : 0];
 
-				"0": 12,
-				"1": 5.5,
-				"2": 12,
-				"3": 12,
-				"4": 12,
-				"5": 12,
-				"6": 12,
-				"7": 12,
-				"8": 12,
-				"9": 12,
+	const nextBodyTimeWidth = useMemo(() => {
+		return nextBodyTimeText.split("").reduce((w, char, i) =>
+			w + bodyTimeFontPref.glyphWidths[char] +
+			(i < nextBodyTimeText.length - 1 ? bodyTimeFontPref.spacing : 0)
+		, 0);
+	}, [nextBodyTimeText]);
 
-				":": 5.5,
-				"!": 5.5
-			}
-		},
-		{
-			name: "Hades-Short",
-			spacing: 1.5,
-			glyphHeight: 51.5,
-			glyphWidths: {
-				"A": 12.5,
-				"M": 19.5,
-				"N": 19.5,
-				"O": 12.5,
-				"P": 12.5,
-				"W": 19.5,
-
-				"0": 12.5,
-				"1": 5.5,
-				"2": 12.5,
-				"3": 12.5,
-				"4": 12.5,
-				"5": 12.5,
-				"6": 12.5,
-				"7": 12.5,
-				"8": 12.5,
-				"9": 12.5,
-
-				":": 5.5,
-				"!": 5.5
-			}
-		}
-	];
-
-	const bodyTimeFontIndex = (ActiveLocation.isBodyTimeNow) ? 1 : 0;
-	const bodyTimeFontPref = bodyTimeFontPrefs[bodyTimeFontIndex];
-
-	let nextBodyTimeWidth = 0;
-	for (let i = 0; i < ActiveLocation.nextBodyTime.length; i++) {
-		const char = ActiveLocation.nextBodyTime[i];
-		nextBodyTimeWidth += bodyTimeFontPref.glyphWidths[char];
-		if (i != ActiveLocation.nextBodyTime.length - 1) nextBodyTimeWidth += bodyTimeFontPref.spacing;
-	}
-
-	const locationNameTextSize =
-		(ActiveLocation.name.length > 20) ? GLOBAL.ui.bodyTextSize :
-		(ActiveLocation.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize :
-		2 * GLOBAL.ui.bodyTextSize;
 	const locationNameTextOffset = GLOBAL.screen.borderWidth;
-	const curLocTextOffset = locationNameTextOffset + locationNameTextSize + 3;
+	const locationNameTextSize =
+		(ActiveCity.name.length > 20) ? GLOBAL.ui.bodyTextSize :
+		(ActiveCity.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize :
+		2 * GLOBAL.ui.bodyTextSize;
+	const youAreHereTextOffset = locationNameTextOffset + locationNameTextSize + 3;
+	const youAreHereTextSize = 0.6 * GLOBAL.ui.bodyTextSize;
 
 
 	//* Stylesheet
@@ -179,57 +226,83 @@ export default function HomeScreen() {
 			overflow: "hidden",
 		},
 
-		spriteSheetContainer: {
+		bodySpriteSheetContainer: {
 			position: "absolute",
-			justifyContent: "center",
-			alignItems: "center",
-			top: -(bodyDiameter - bodyClip) / 2,
-			width: bodyDiameter - bodyClip,
-			height: bodyDiameter - bodyClip,
-			borderRadius: "50%",
-			transform: [{rotate: `${ActiveBody?.axialTilt}deg`}],
+			top: -bodyDiameter / 2,
+			width: bodyDiameter,
+			height: bodyDiameter,
 			overflow: "hidden",
-			zIndex: 9998,
+			transform: [{ rotate: ActiveBody?.axialTilt + "deg" }],
 		},
 
-		spriteSheetWrapper: {
+		bodyPlaceholder: {
 			position: "absolute",
 			width: bodyDiameter,
 			height: bodyDiameter,
-			// transform: [{scaleX: -1}],
+			backgroundColor: ActiveBody?.colors[2],
+			borderRadius: "50%",
 		},
 
-		spriteSheetImg: {
+		bodyPlaceholderImg: {
+			position: "absolute",
+			width: bodyDiameter,
+			height: bodyDiameter
+		},
+
+		bodySpriteSheetWrapper: {
+			position: "absolute",
+			left: -(bodyFrame % bodyFrameWidth) * bodyDiameter,
+			top: -Math.floor(bodyFrame / bodyFrameWidth) * bodyDiameter,
 			width: bodyFrameWidth * bodyDiameter,
 			height: bodyFrameHeight * bodyDiameter,
-			marginLeft: -(bodyFrameRef.current % bodyFrameWidth) * bodyDiameter,
-			marginTop: -Math.floor(bodyFrameRef.current / bodyFrameWidth) * bodyDiameter,
 		},
 
-		bodyShadow: {
+		bodySpriteSheetImg: {
 			position: "absolute",
-			top: -shadowWallOffset,
-			width: GLOBAL.slot.width + 2 * shadowWallOffset,
-			height: GLOBAL.slot.width + 2 * shadowWallOffset,
-			zIndex: 9999,
-			pointerEvents: "none",
-		},
-
-		bodyShadowSvg: {
 			width: "100%",
 			height: "100%",
-			shadowColor: GLOBAL.ui.colors[1],
-			shadowRadius: 40,
-			shadowOpacity: 1,
-			shadowOffset: { width: 0, height: 0 },
+		},
+
+		finger: {
+			position: "absolute",
+			top: 0.2 * GLOBAL.slot.width,
+			width: 0.25 * GLOBAL.slot.width,
+			height: 0.25 * GLOBAL.slot.width,
+			opacity: fingerOpacity,
+			transform: [
+				{
+					translateX: fingerTranslate.interpolate({
+						inputRange: [0, 1],
+						outputRange: [
+							-(fingerTranslateDistance / 2) * fingerDx,
+							(fingerTranslateDistance / 2) * fingerDx
+						],
+					}),
+				},
+				{
+					translateY: fingerTranslate.interpolate({
+						inputRange: [0, 1],
+						outputRange: [
+							-(fingerTranslateDistance / 2) * fingerDy,
+							(fingerTranslateDistance / 2) * fingerDy
+						],
+					}),
+				},
+			],
+			zIndex: 9999,
+		},
+
+		fingerImg: {
+			width: "100%",
+			height: "100%",
 		},
 
 		timeContainer: {
 			position: "absolute",
 			justifyContent: "center",
-			width: "100%",
-			marginTop: bodyDiameter / 3,
-			transform: [{skewY: GLOBAL.slot.skew + "deg"}],
+			alignItems: "center",
+			top: bodyDiameter / 2,
+			height: GLOBAL.slot.height - (bodyDiameter / 2) - (youAreHereTextOffset + youAreHereTextSize),
 		},
 
 		nextText: {
@@ -240,16 +313,16 @@ export default function HomeScreen() {
 			color: GLOBAL.ui.colors[0],
 		},
 
-		nextBodyTime: {
+		bodyTimeText: {
 			fontFamily: "Trickster-Reg",
-			color: ActiveBody?.colors[0],
+			color: ActiveBody?.colors[1],
 		},
 
-		timeText: {
+		nextBodyTime: {
 			width: "100%",
 			textAlign: "center",
 			fontFamily: bodyTimeFontPref.name,
-			fontSize: ((GLOBAL.slot.width - 2 * GLOBAL.screen.borderWidth) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
+			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth)) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
 			marginVertical: GLOBAL.screen.borderWidth,
 			color: GLOBAL.ui.colors[0],
 		},
@@ -259,23 +332,23 @@ export default function HomeScreen() {
 			textAlign: "center",
 			fontFamily: "Trickster-Reg",
 			fontSize: GLOBAL.ui.bodyTextSize,
-			marginTop: -5,
+			marginTop: -0.15 * GLOBAL.ui.bodyTextSize,
 			paddingBottom: 0.3 * GLOBAL.ui.bodyTextSize,
 			color: GLOBAL.ui.colors[0],
 		},
 
-		actualDateText: {
+		nextBodyDate: {
 			fontFamily: "Trickster-Reg",
-			color: ActiveBody?.colors[0],
+			color: ActiveBody?.colors[1],
 		},
 
 		cityTextContainer: {
-			justifyContent: "center",
+			position: "absolute",
 			width: "100%",
+			height: "100%",
 		},
 
 		cityTextSvg: {
-			position: "absolute",
 			width: GLOBAL.slot.width,
 			height: GLOBAL.slot.height,
 		},
@@ -285,99 +358,103 @@ export default function HomeScreen() {
 	//* Components
 	return (
 		<View style={styles.content}>
-			<View style={styles.spriteSheetContainer} {...panResponder.panHandlers}>
-				<View style={styles.spriteSheetWrapper}>
-					<Image style={styles.spriteSheetImg} source={ActiveBody?.spriteSheet} />
-				</View>
+			<View style={styles.bodySpriteSheetContainer} {...bodyPanResponder.panHandlers}>
+				{(!isBodyPlaceholderImgDisplayed) &&
+					<View style={styles.bodyPlaceholder}></View>
+				}
+
+				{(!isBodySpriteSheetDisplayed) &&
+					<ExpoImage
+						style={styles.bodyPlaceholderImg}
+						source={ActiveBody?.thumbnail}
+						onDisplay={() => {
+							setIsBodyPlaceholderImgDisplayed(true);
+						}}
+					/>
+				}
+
+				{(isBodyPlaceholderImgDisplayed) &&
+					<Animated.View style={[styles.bodySpriteSheetWrapper]}>
+						<ExpoImage
+							style={styles.bodySpriteSheetImg}
+							source={ActiveBody?.spriteSheet}
+							onDisplay={() => {
+								setIsBodySpriteSheetDisplayed(true);
+							}}
+						/>
+					</Animated.View>
+				}
 			</View>
 
-			{Array.from({ length: 3 }).map((_, i) => (
-				<View key={`shadow-${i}`} style={styles.bodyShadow} pointerEvents="none">
-					<Svg
-						style={styles.bodyShadowSvg}
-						viewBox={`0 0 ${GLOBAL.slot.width + 2 * shadowWallOffset} ${GLOBAL.slot.width + 2 * shadowWallOffset}`}
-					>
-						<Path
-							fill={GLOBAL.ui.colors[1]}
-							d={`
-								M 0,0
-								h ${GLOBAL.slot.width + 2 * shadowWallOffset}
-								v ${GLOBAL.slot.width / 2 + shadowWallOffset}
-								h ${-shadowWallOffset}
-								v ${-GLOBAL.slot.width / 2 + GLOBAL.slot.borderRadius}
-								q 0,${-GLOBAL.slot.borderRadius} ${-GLOBAL.slot.borderRadius},${-GLOBAL.slot.borderRadius}
-								h ${-GLOBAL.slot.width + 2 * GLOBAL.slot.borderRadius}
-								q ${-GLOBAL.slot.borderRadius},0 ${-GLOBAL.slot.borderRadius},${GLOBAL.slot.borderRadius}
-								v ${GLOBAL.slot.width / 2 - GLOBAL.slot.borderRadius}
-								h ${-shadowWallOffset}
-								z
-							`}
-						/>
-					</Svg>
-				</View>
-			))}
+			<Animated.View style={styles.finger} pointerEvents="none">
+				<ExpoImage style={styles.fingerImg} source={require("../assets/images/finger.png")} />
+			</Animated.View>
 
-			<View style={styles.timeContainer}>
+			<View style={[styles.timeContainer, GLOBAL.ui.skewStyle]} pointerEvents="none">
 				<Text style={styles.nextText}>
-					{ActiveLocation.isBodyTimeNow ? "It's " : "Your next "}
-					<Text style={styles.nextBodyTime}>{ActiveBody?.name} Time</Text>
-					{ActiveLocation.isBodyTimeNow ? "" : " will occur at"}
+					{ActiveCity.isBodyTimeNow() ? "It's " : "Your next "}
+					<Text style={styles.bodyTimeText}>{ActiveBody?.name} Time</Text>
+					{ActiveCity.isBodyTimeNow() ? "" : " will occur at"}
 				</Text>
 
-				<Text style={styles.timeText}>{ActiveLocation.nextBodyTime}</Text>
+				<Text style={styles.nextBodyTime} numberOfLines={1}>
+					{ActiveCity.isBodyTimeNow() ? "NOW!" : nextBodyTime}
+				</Text>
 
-				{!ActiveLocation.isBodyTimeNow && (
+				{!ActiveCity.isBodyTimeNow() && (
 					<Text style={styles.dateText}>
-						on <Text style={styles.actualDateText}>{ActiveLocation.nextBodyDateLong}</Text>
+						on <Text style={styles.nextBodyDate}>{nextBodyDate}</Text>
 					</Text>
 				)}
 			</View>
 
 			{/* Curved city text */}
-			<Svg style={styles.cityTextSvg} viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}>
-				<Path id="semi-ellipse-city" fill="transparent" d={`
-					M ${locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
-					A ${GLOBAL.slot.ellipseSemiMajor - locationNameTextOffset} ${GLOBAL.slot.ellipseSemiMinor - locationNameTextOffset}
-					0 0 0
-					${GLOBAL.slot.width - locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
-				`}/>
-
-				<SvgText
-					fill={ActiveBody?.colors[0]}
-					fontFamily="Trickster-Reg"
-					fontSize={locationNameTextSize}
-					letterSpacing="1"
-					textAnchor="middle"
-				>
-					<TextPath href="#semi-ellipse-city" startOffset="58%">
-						<TSpan>{ActiveLocation.name}</TSpan>
-					</TextPath>
-				</SvgText>
-
-				{(ActiveLocationIndex == 0) && (
-					<>
+			<View style={styles.cityTextContainer} pointerEvents="none">
+				<Svg style={styles.cityTextSvg} viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}>
+					<Defs>
 						<Path id="semi-ellipse-cur-loc" fill="transparent" d={`
-							M ${curLocTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
-							A ${GLOBAL.slot.ellipseSemiMajor - curLocTextOffset} ${GLOBAL.slot.ellipseSemiMinor - curLocTextOffset}
-							0 0 0
-							${GLOBAL.slot.width - curLocTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+							M ${youAreHereTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+							A ${GLOBAL.slot.ellipseSemiMajor - youAreHereTextOffset} ${GLOBAL.slot.ellipseSemiMinor - youAreHereTextOffset}
+								0 0 0 ${GLOBAL.slot.width - youAreHereTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
 						`}/>
 
+						<Path id="semi-ellipse-city" fill="transparent" d={`
+							M ${locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+							A ${GLOBAL.slot.ellipseSemiMajor - locationNameTextOffset} ${GLOBAL.slot.ellipseSemiMinor - locationNameTextOffset}
+								0 0 0 ${GLOBAL.slot.width - locationNameTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+						`}/>
+					</Defs>
+
+					{(ActiveCityIndex == 0) && 
 						<SvgText
-							key={`cur-loc-${curLocTextOffset}`} //? Forces text update on location change
-							fill={GLOBAL.ui.colors[0]}
+							key={`cur-loc-${youAreHereTextOffset}`} //? Forces text update on location change
+							fill={ActiveBody?.colors[3]}
 							fontFamily="Trickster-Reg-Arrow"
-							fontSize={0.6 * GLOBAL.ui.bodyTextSize}
+							fontSize={youAreHereTextSize}
 							letterSpacing="0.5"
 							textAnchor="middle"
 						>
-							<TextPath href="#semi-ellipse-cur-loc" startOffset="58%">
+							<TextPath href="#semi-ellipse-cur-loc" startOffset="56%">
 								<TSpan>¹ You are here!</TSpan>
 							</TextPath>
 						</SvgText>
-					</>
-				)}
-			</Svg>
+					}
+
+					<SvgText
+						fill={ActiveBody?.colors[1]}
+						fontFamily="Trickster-Reg"
+						fontSize={locationNameTextSize}
+						letterSpacing="1"
+						textAnchor="middle"
+					>
+						<TextPath href="#semi-ellipse-city" startOffset="56%">
+							<TSpan>{ActiveCity.name}</TSpan>
+						</TextPath>
+					</SvgText>
+				</Svg>
+			</View>
+
+			<SlotTopShadow />
 		</View>
 	);
 }
