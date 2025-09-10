@@ -5,24 +5,162 @@ import * as ExpoLocation from "expo-location";
 import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Path, Svg } from "react-native-svg";
 import * as GLOBAL from "../ref/global";
+import StarField from "../ref/star-field";
 
+
+//* Tabs
+const tabIconDimension: number = 0.11 * GLOBAL.slot.width;
+
+const tabIcon1n4X: number = 0.815 * GLOBAL.slot.width;
+const tabIcon1n4Y: number = 0.055 * GLOBAL.slot.width;
+
+const tabIcon2X: number = 0.44 * GLOBAL.slot.width;
+const tabIcon2Y: number = 0.2 * GLOBAL.slot.width;
+
+const tabIcon3X: number = 0.225 * GLOBAL.slot.width;
+const tabIcon3Y: number = 0.24 * GLOBAL.slot.width;
+
+const tabArray: {
+	key: string;
+	href: any,
+	handlePath: string,
+	unpressedSrc: any,
+	pressedSrc: any,
+	iconPath: string,
+	iconStyle: any
+}[] = [
+	{
+		key: "settings",
+		href: "/settings",
+		handlePath: "m 1.5,14.142578 v 13.817871 a 5.9903568,5.9903568 60.289899 0 0 3.0130244,5.280231 c 0.7502557,0.416114 1.5236431,0.821166 2.3796953,1.240603 A 4.9413759,4.9413759 169.8285 0 0 12.548604,33.466532 L 20.82786,25.187276 A 2.1874076,2.1874076 76.803154 0 0 19.985826,21.596355 C 14.343924,19.535488 9.0406648,16.712367 5.0301717,12.845957 A 2.0431349,2.0431349 159.83187 0 0 1.5,14.142578 Z",
+		unpressedSrc: require("../assets/images/tabs/unpressed/1.png"),
+		pressedSrc: require("../assets/images/tabs/pressed/1.png"),
+		iconPath: "m 42.671386,10.000247 c 1.768098,9.96388 -9.903561,14.796885 -15.69873,6.500977 -2.239434,4.740177 -5.730524,8.232733 -10.470703,10.472168 8.295909,5.795167 3.462902,17.465366 -6.500976,15.697265 1.768294,4.935334 1.768294,9.874244 0,14.809571 9.963878,-1.768095 14.796884,9.903563 6.500976,15.69873 l 0.03662,0.03809 0.04248,-0.07617 c 4.622061,2.243128 8.039518,5.695548 10.242188,10.35791 5.795167,-8.295914 17.463898,-3.462909 15.695802,6.500971 4.935332,-1.768294 9.874239,-1.768294 14.80957,0 -1.768099,-9.96388 9.905027,-14.796885 15.700195,-6.500977 2.239434,-4.740179 5.730525,-8.232735 10.470703,-10.472168 -8.295908,-5.795167 -3.464368,-17.465364 6.499512,-15.697265 -1.768294,-4.935332 -1.768294,-9.874241 0,-14.80957 -9.96388,1.768095 -14.79542,-9.903564 -6.499512,-15.698731 l -0.03808,-0.03809 -0.04102,0.07617 c -4.622063,-2.243127 -8.039518,-5.695549 -10.242188,-10.35791 -5.795167,8.295908 -17.465362,3.462904 -15.697265,-6.500977 -4.935333,1.768294 -9.874238,1.768294 -14.809571,0 z m 7.404786,3.979981 c 1.158785,-3.47e-4 2.317371,0.09832 3.476074,0.292969 2.700745,5.387344 8.525312,8.741699 14.4375,8.797851 1.664796,0.01581 3.335521,-0.232876 4.945312,-0.769043 1.850113,1.317347 3.442808,2.892201 4.778321,4.724121 -2.459068,7.336365 1.095025,15.950642 8.0083,19.419434 0.390348,2.318083 0.393708,4.636954 0.0044,6.955078 -6.902442,3.46133 -10.46123,12.052972 -8.028809,19.381348 -1.361961,1.913702 -2.999442,3.552674 -4.911621,4.916015 -1.61114,-0.536714 -3.282327,-0.784867 -4.948242,-0.769043 -5.911705,0.05614 -11.736469,3.408363 -14.4375,8.794922 -2.31737,0.389851 -4.634742,0.390692 -6.952148,0.0015 -2.700745,-5.387345 -8.523847,-8.740236 -14.436036,-8.796387 -1.664796,-0.01581 -3.335521,0.232876 -4.945312,0.769043 -1.850114,-1.317346 -3.442807,-2.893665 -4.77832,-4.725586 2.459068,-7.336364 -1.09649,-15.949177 -8.009765,-19.417968 -0.390253,-2.317524 -0.391959,-4.63605 -0.0029,-6.953614 6.902627,-3.460953 10.457109,-12.052949 8.025878,-19.381347 1.36295,-1.914742 3.003621,-3.553677 4.917481,-4.917481 1.610374,0.536112 3.280272,0.784858 4.945312,0.769043 5.911704,-0.05615 11.735002,-3.408365 14.436035,-8.794922 1.158684,-0.194926 2.317288,-0.29555 3.476075,-0.295898 z M 50,31.999271 c -4.641674,0 -9.289148,1.490397 -12.855469,4.492676 -3.56632,3.002278 -6.032007,7.528039 -6.292969,13.486816 v 0.02051 0.02197 c 0.260962,5.958777 2.726646,10.484668 6.292969,13.486817 3.566324,3.00215 8.2138,4.491211 12.855469,4.491211 4.641667,0 9.289144,-1.489061 12.855468,-4.491211 3.566325,-3.002149 6.032008,-7.52804 6.292969,-13.486817 v -0.02197 -0.02051 C 68.887475,44.019986 66.42179,39.494225 62.855468,36.491947 59.289147,33.489668 54.641672,31.999271 50,31.999271 Z m 0,1.766601 c 3.908002,0 7.808717,1.358302 10.658203,4.048828 2.849486,2.690528 4.676555,6.707021 4.426758,12.161133 l -0.0029,0.02344 0.0029,0.02344 c 0.249798,5.454106 -1.577277,9.473658 -4.426758,12.164058 -2.84948,2.690398 -6.750186,4.047363 -10.658203,4.047363 -3.908017,0 -7.808723,-1.356965 -10.658203,-4.047363 -2.849482,-2.6904 -4.675093,-6.709947 -4.425293,-12.164063 l 0.0015,-0.02344 -0.0015,-0.02344 C 34.666705,44.521726 36.492309,40.505228 39.341797,37.8147 42.191283,35.124174 46.091997,33.765872 50,33.765872 Z",
+		iconStyle: {
+			marginRight: tabIcon1n4X,
+			marginTop: tabIcon1n4Y,
+		},
+	},
+	{
+		key: "cities",
+		href: "/cities",
+		handlePath: "m 21.917704,25.511007 -8.384725,8.384724 a 2.2754069,2.2754069 78.21743 0 0 0.78294,3.753425 c 5.739473,2.109752 11.890603,3.64007 18.372674,4.605158 a 3.9519016,3.9519016 146.26795 0 0 4.375538,-2.921659 l 2.650058,-9.889431 a 3.0327267,3.0327267 55.685446 0 0 -2.572295,-3.768786 c -3.258144,-0.424537 -6.391612,-1.007496 -9.368651,-1.73334 a 6.1840424,6.1840424 164.99158 0 0 -5.855539,1.569909 z",
+		unpressedSrc: require("../assets/images/tabs/unpressed/2.png"),
+		pressedSrc: require("../assets/images/tabs/pressed/2.png"),
+		iconPath: "M 38.082952,12.76415 C 30.137186,19.4677 21.278333,24.582436 11.5,28.111893 c 1.832565,15.347729 1.832565,39.014061 0,54.361791 l 2.74885,4.762166 C 21.442805,81.166575 29.387296,76.403961 38.082952,72.936821 46.778316,76.403936 54.723307,81.16675 61.917053,87.23585 69.86282,80.532296 78.721672,75.417564 88.5,71.888108 86.667441,56.540378 86.667441,32.874045 88.5,17.526317 L 85.751155,12.76415 C 78.557407,18.833249 70.612417,23.596063 61.917053,27.063178 53.22169,23.596063 45.276699,18.833251 38.082952,12.76415 Z M 35.566756,69.166101 C 29.764084,73.710917 23.497821,77.449663 16.763264,80.379832 15.273819,66.657668 15.2459,44.616911 16.686313,30.894746 c 5.844468,-4.588197 12.160835,-8.357162 18.952025,-11.305003 0,0 1.422685,35.823816 -0.07158,49.576358 z m 4.960811,-49.576358 c 6.730297,2.921411 12.994087,6.64905 18.794544,11.18152 1.547095,13.781827 1.61947,35.882222 0.211174,49.664048 C 52.749474,77.496791 46.439067,73.740037 40.599152,69.166101 39.104881,55.413559 39.078994,33.342285 40.527567,19.589743 Z m 42.709177,0.02864 c 1.489572,13.722162 1.517239,35.762919 0.07695,49.485084 C 77.451671,73.705492 71.115275,77.48352 64.300818,80.435313 62.892525,66.653487 62.9649,44.553093 64.511994,30.771266 70.292579,26.254322 76.532683,22.535277 83.236743,19.61838 Z",
+		iconStyle: {
+			marginRight: tabIcon2X,
+			marginTop: tabIcon2Y,
+		},
+	},
+	{
+		key: "index",
+		href: "/",
+		handlePath: "m 72.227541,23.942251 c -9.795066,2.393542 -19.454976,2.798213 -27.102748,2.436009 a 4.3136751,4.3136751 144.35305 0 0 -4.398317,3.15434 l -2.656077,9.912827 a 2.9290328,2.9290328 55.103617 0 0 2.579585,3.698245 c 10.220417,0.776315 27.904847,0.799654 45.034648,-5.494758 a 2.2751737,2.2751737 101.78239 0 0 0.782877,-3.753183 l -8.384725,-8.384724 a 6.1806043,6.1806043 14.998611 0 0 -5.855243,-1.568756 z",
+		unpressedSrc: require("../assets/images/tabs/unpressed/3.png"),
+		pressedSrc: require("../assets/images/tabs/pressed/3.png"),
+		iconPath: "",
+		iconStyle: {
+			marginLeft: tabIcon3X,
+			marginTop: tabIcon3Y,
+		},
+	},
+	{
+		key: "bodies",
+		href: "/bodies",
+		handlePath: "m 94.970273,12.845934 c -4.005661,3.861782 -9.304264,6.686073 -14.955623,8.750404 a 2.1874171,2.1874171 103.1966 0 0 -0.842022,3.590938 l 8.277791,8.277791 a 4.9425678,4.9425678 10.167747 0 0 5.655195,1.014244 c 0.891311,-0.43612 1.668975,-0.843521 2.3824,-1.23781 a 5.9831759,5.9831759 119.70176 0 0 3.012474,-5.281052 V 14.142578 a 2.0431594,2.0431594 20.168234 0 0 -3.530215,-1.296644 z",
+		unpressedSrc: require("../assets/images/tabs/unpressed/4.png"),
+		pressedSrc: require("../assets/images/tabs/pressed/4.png"),
+		iconPath: "m 49.999282,17.320825 c -17.082151,0 -34.164374,10.893925 -35.3506,32.68158 0.111443,2.0469 0.364849,3.997781 0.743712,5.85238 -7.6098088,7.4272 -11.8925964,14.599924 -9.9091962,19.846195 3.7297574,4.558425 12.7514472,4.201041 23.6921762,0.896622 20.217244,13.451188 54.476624,4.590138 56.174507,-26.595197 -0.111628,-2.050385 -0.36377,-4.004219 -0.743712,-5.861647 7.602129,-7.425803 11.894362,-14.599061 9.91151,-19.843878 -1.821154,-2.225772 -4.90392,-3.280268 -8.855024,-3.391879 -4.137149,-0.116867 -9.235802,0.815155 -14.830198,2.50684 -6.093864,-4.056748 -13.462191,-6.091016 -20.833175,-6.091016 z m 0,1.779346 c 13.818094,0 27.63622,9.092025 28.277236,27.27172 C 72.153545,51.445697 64.217572,56.62597 56.423925,61.125634 47.770585,66.121641 38.304367,70.846367 30.296732,73.523133 24.714702,68.375459 21.159418,60.538156 21.766067,50.002405 20.579839,29.400977 35.289587,19.100171 49.999282,19.100171 Z m 30.693715,5.13647 c 3.624669,-0.02077 6.222761,1.118204 7.233224,3.866835 2.817408,3.379717 0.725467,8.043429 -4.056811,13.113408 -1.961659,-6.687815 -5.668379,-11.975046 -10.398052,-15.854251 2.676355,-0.702198 5.125373,-1.113981 7.221639,-1.125992 z m -2.453549,25.566514 c -0.0035,0.0673 -0.003,0.131735 -0.0069,0.19925 C 79.916275,79.244007 49.579528,87.726183 32.669243,75.462343 40.691332,72.69329 49.49624,68.5545 57.90908,63.697345 65.271687,59.446541 72.297028,54.660569 78.239498,49.803155 Z M 16.13147,58.79256 c 1.963093,6.690574 5.671833,11.979589 10.405004,15.858882 C 19.22542,76.567686 13.668805,76.239346 12.072339,71.8967 9.2567123,68.519111 11.353928,63.858639 16.13147,58.79256 Z",
+		iconStyle: {
+			marginLeft: tabIcon1n4X,
+			marginTop: tabIcon1n4Y,
+		},
+	},
+];
+
+
+//* Stylesheet
+const styles = StyleSheet.create({
+	screen: {
+		flex: 1,
+		alignItems: "center",
+	},
+
+	slotMask: {
+		flex: 1,
+		width: GLOBAL.slot.width,
+		maxHeight: GLOBAL.slot.height,
+		overflow: "hidden",
+	},
+
+	slotBG: {
+		position: "absolute",
+		width: "100%",
+		height: "100%",
+		backgroundColor: GLOBAL.ui.colors[1],
+	},
+
+	tabContainer: {
+		position: "absolute",
+		justifyContent: "center",
+		alignItems: "center",
+		width: GLOBAL.slot.width,
+		height: GLOBAL.nav.height,
+	},
+
+	tabImg: {
+		position: "absolute",
+		width: "100%",
+		height: "100%",
+	},
+
+	tabIcon: {
+		position: "absolute",
+		width: tabIconDimension,
+		height: tabIconDimension,
+	},
+});
 
 export default function Layout() {
-	//* Global app storage
-	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+	//* Load save
+	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
+	const IsSaveLoaded = GLOBAL.useSaveStore((state) => state.isSaveLoaded);
+	useEffect(() => {
+		LoadSave();
+	}, []);
 
-	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
 
-	const SavedCities = GLOBAL.useAppStore((state) => state.savedCities);
-	const UnshiftSavedCity = GLOBAL.useAppStore((state) => state.unshiftSavedCity);
+	const screenInsets = useSafeAreaInsets();
+	useEffect(() => {
+		GLOBAL.screen.topOffset = screenInsets.top;
+		GLOBAL.screen.bottomOffset = screenInsets.bottom;
+	}, []);
 
-	const ActiveCityIndex = GLOBAL.useAppStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useAppStore((state) => state.setActiveCityIndex);
+
+	//* App storage
+	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
+
+	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
+
+	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
+	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
+	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
+
+	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
+	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
+
+	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
+	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
+
+	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
+	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
 
 
 	//* Fonts
@@ -31,8 +169,9 @@ export default function Layout() {
 		"Trickster-Reg-Feat": require("../assets/fonts/Trickster/Trickster-Reg-Feat.otf"),
 		"Trickster-Reg-Arrow": require("../assets/fonts/Trickster/Trickster-Reg-Arrow.otf"),
 
-		"Hades-Tall": require("../assets/fonts/Hades/Hades-Tall.ttf"),
-		"Hades-Short": require("../assets/fonts/Hades/Hades-Short.ttf"),
+		"Hades-TallFat": require("../assets/fonts/Hades/Hades-TallFat.ttf"),
+		"Hades-ShortFat": require("../assets/fonts/Hades/Hades-ShortFat.ttf"),
+		"Hades-ShortSkinny": require("../assets/fonts/Hades/Hades-ShortSkinny.ttf"),
 	});
 
 
@@ -67,216 +206,93 @@ export default function Layout() {
 				}
 
 				const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country ?? "";
-				const loc = new GLOBAL.City(name, lat, lon);
-				setGeolocation(loc);
-				UnshiftSavedCity(loc);
+				const city = new GLOBAL.City(name, lat, lon);
+				// city.setNextBodyTime(ActiveBody!);
+				setGeolocation(city);
+				UnshiftSavedCity(city);
 			}
 			catch (err) { console.error("Error fetching location:", err); }
 		})();
 	}, []);
 
 
-	//* Calculate times
-	useEffect(() => {
-		SavedCities.forEach(loc => {
-			loc.setNextBodyTime(ActiveBody);
-		});
-	}, [geolocation, SavedCities.length]);
-
-
 	//* Tabs/navigation
-	const tabIconDimension: number = 0.12 * GLOBAL.slot.width;
-	const tabIcon1n5X: number = 0.82 * GLOBAL.slot.width;
-	const tabIcon1n5Y: number = 0.045 * GLOBAL.slot.width;
-	const tabIcon2n4X: number = 0.44 * GLOBAL.slot.width;
-	const tabIcon2n4Y: number = 0.21 * GLOBAL.slot.width;
-	const tabIcon3X: number = 0.255 * GLOBAL.slot.width;
-
-	const tabArray: {
-		key: string;
-		href: any,
-		handlePath: string,
-		unpressedSrc: any,
-		pressedSrc: any,
-		iconPath: string,
-		iconStyle: any
-	}[] = [
-		{
-			key: "notifications",
-			href: "/notifications",
-			handlePath: "m 1.0004883,12.098734 v 16.153219 a 6.0071659,6.0071659 60.329276 0 0 3.0105786,5.284378 c 0.8922538,0.498181 1.714742,0.927561 2.5063509,1.318251 a 4.9285363,4.9285363 169.86934 0 0 5.6532572,-1.01012 l 9.055623,-9.055623 A 2.179765,2.179765 76.710805 0 0 20.38069,21.208648 C 15.31118,19.37285 8.5901422,16.220218 4.005286,11.129024 a 1.6910397,1.6910397 162.11404 0 0 -3.0047977,0.96971 z",
-			unpressedSrc: require("../assets/images/tabs/unpressed/1.png"),
-			pressedSrc: require("../assets/images/tabs/pressed/1.png"),
-			iconPath: "m 50,13.839502 c -2.208946,5.39e-4 -3.999294,1.791542 -3.999024,4.000488 h 0.01611 c -9.027678,0.970853 -17.147434,5.272602 -18.124512,12.909668 2.238802,4.186515 2.238802,8.375984 0,12.5625 2.238802,13.69919 -5.729002,24.374996 -15.392578,22.875 v 4.5 c 0.0034,-4.65e-4 0.0068,-9.65e-4 0.01025,-0.0015 L 12.5,70.690088 c 7.396845,2.761693 16.00859,4.575361 25.000488,5.441894 2.197797,13.371356 22.802692,13.371356 25.000488,0 h -0.01318 C 71.484472,75.26536 80.099525,73.450179 87.5,70.687158 v -4.5 c -9.663584,1.499998 -17.629913,-9.175809 -15.391114,-22.875 -2.238799,-4.186516 -2.238799,-8.375984 0,-12.5625 C 71.131809,23.112572 63.01089,18.810833 53.98291,17.83999 h 0.01758 C 54.000758,15.630472 52.209518,13.839233 50,13.839502 Z m 0,4.911621 c 8.255578,0 16.511979,3.99904 15.392578,11.998535 2.238802,4.186515 2.238802,8.375984 0,12.5625 1.702065,10.684418 7.212012,20.074665 14.608887,24.624023 -16.024127,9.149828 -43.979246,9.151552 -60.00293,0.0015 7.398985,-4.548714 12.908072,-13.939728 14.610351,-24.625488 -2.2388,-4.186514 -2.2388,-8.375985 0,-12.5625 C 33.489487,22.750161 41.744419,18.751123 50,18.751123 Z m -5.985352,57.834961 c 3.97999,0.18002 7.99218,0.180319 11.972168,0 1.651377,10.566908 -13.623545,10.566908 -11.972168,0 z",
-			iconStyle: {
-				marginRight: tabIcon1n5X,
-				marginTop: tabIcon1n5Y,
-			},
-		},
-		{
-			key: "cities",
-			href: "/cities",
-			handlePath: "m 22.323466,25.10671 -9.168416,9.168416 a 2.2822899,2.2822899 78.296106 0 0 0.779417,3.762375 c 5.817424,2.157486 12.052701,3.721123 18.624054,4.703819 a 3.9491895,3.9491895 146.28535 0 0 4.375098,-2.919445 l 2.912547,-10.8708 a 3.0305496,3.0305496 55.662287 0 0 -2.572732,-3.766156 c -3.158829,-0.40929 -6.198951,-0.967805 -9.09097,-1.661138 a 6.2121721,6.2121721 164.88132 0 0 -5.858998,1.582929 z",
-			unpressedSrc: require("../assets/images/tabs/unpressed/2.png"),
-			pressedSrc: require("../assets/images/tabs/pressed/2.png"),
-			iconPath: "m 49.999512,11.67627 c -19.860104,0 -39.719498,12.776241 -40.8383792,38.324707 2.2377592,51.096923 79.4404652,51.096923 81.6782222,0 C 89.720477,24.452511 69.859603,11.67627 49.999512,11.67627 Z m 0,1.67871 c 17.622345,0 35.245344,12.21641 34.126465,36.645997 2.237759,48.859166 -70.489224,48.859166 -68.251465,0 C 14.755633,25.57139 32.377167,13.35498 49.999512,13.35498 Z m -0.169922,6.424805 c -14.408295,2.13889 -23.644395,18.133925 -18.292969,31.681641 6.048792,8.003106 11.474766,16.367692 16.286133,25.085449 0.01568,0.02836 0.02986,0.0566 0.04541,0.08496 0.644337,1.168762 1.27633,2.344312 1.898438,3.525879 0.01141,0.02096 0.02271,0.04203 0.03369,0.06299 0.614548,-1.189254 1.243032,-2.371908 1.87793,-3.550781 0.01141,-0.02139 0.02214,-0.04455 0.03369,-0.06592 5.251311,-9.743403 11.19661,-19.134631 17.874026,-28.224608 2.52323,-13.192627 -6.76844,-26.46072 -19.756348,-28.59961 z m 2.443359,6.161133 c 0.264368,-0.007 0.527331,-0.0066 0.786621,0 10.02599,0.251071 16.099246,10.51282 10.681641,19.731445 -4.023368,9.509963 -8.69816,18.74956 -13.990723,27.679688 C 44.98676,65.299788 40.765663,56.934541 37.092773,48.253418 28.654189,37.914041 36.657851,24.056906 49.82959,26.195801 c 0.835083,-0.150392 1.650241,-0.233862 2.443359,-0.254883 z m -2.271972,5.938477 c -4.651678,0 -9.303109,2.654705 -10.372559,7.964355 2.1389,10.623458 18.604753,10.623458 20.743652,0 -1.06945,-5.30965 -5.719415,-7.964355 -10.371093,-7.964355 z m 0,1.604003 c 2.512779,0 5.023063,2.120151 3.953613,6.360352 2.1389,8.484562 -10.049041,8.484562 -7.910156,0 -1.069437,-4.2402 1.443764,-6.360351 3.956543,-6.360352 z",
-			iconStyle: {
-				marginRight: tabIcon2n4X,
-				marginTop: tabIcon2n4Y,
-			},
-		},
-		{
-			key: "index",
-			href: "/",
-			handlePath: "m 40.858308,29.041877 -2.918276,10.891344 a 2.9327514,2.9327514 55.137579 0 0 2.579207,3.702379 c 6.084891,0.470527 12.521238,0.49886 18.962036,2.51e-4 a 2.9329809,2.9329809 124.86034 0 0 2.579182,-3.70263 L 59.14218,29.041877 a 4.314332,4.314332 35.653711 0 0 -4.398404,-3.155188 c -3.174426,0.150101 -6.331367,0.14921 -9.487061,-8e-6 a 4.3143353,4.3143353 144.34624 0 0 -4.398407,3.155196 z",
-			unpressedSrc: require("../assets/images/tabs/unpressed/3.png"),
-			pressedSrc: require("../assets/images/tabs/pressed/3.png"),
-			iconPath: ActiveBody?.icon,
-			iconStyle: {
-				marginTop: tabIcon3X,
-			},
-		},
-		{
-			key: "bodies",
-			href: "/bodies",
-			handlePath: "m 71.818012,23.523754 c -2.892006,0.693305 -5.932217,1.251834 -9.090967,1.661137 a 3.0305717,3.0305717 124.33743 0 0 -2.572723,3.766184 l 2.912547,10.8708 a 3.9491648,3.9491648 33.714398 0 0 4.375095,2.919414 c 6.571341,-0.982724 12.806678,-2.546247 18.624073,-4.703754 a 2.2823115,2.2823115 101.70358 0 0 0.779402,-3.762409 L 77.677022,25.10671 a 6.2122359,6.2122359 15.118901 0 0 -5.85901,-1.582956 z",
-			unpressedSrc: require("../assets/images/tabs/unpressed/4.png"),
-			pressedSrc: require("../assets/images/tabs/pressed/4.png"),
-			iconPath: "m 49.999242,15.505317 c -18.031159,0 -36.062393,11.499142 -37.31452,34.497222 0.117634,2.160616 0.385118,4.21988 0.785029,6.177512 -8.0325761,7.839822 -12.55329609,15.41103 -10.4597071,20.94876 3.936966,4.811671 13.4598611,4.434432 25.0084071,0.946435 21.340424,14.198475 57.503101,4.845145 59.295311,-28.072707 -0.11783,-2.164295 -0.38398,-4.226676 -0.78503,-6.187294 8.02447,-7.838347 12.55516,-15.410119 10.46215,-20.946315 -1.92233,-2.349426 -5.17636,-3.462505 -9.34697,-3.580316 -4.36699,-0.12336 -9.748902,0.860441 -15.654097,2.646108 C 65.557403,17.6526 57.779725,15.505317 49.999242,15.505317 Z m 0,1.878198 c 14.585765,0 29.171565,9.597138 29.848193,28.786815 C 73.384297,51.526014 65.007437,56.994079 56.780809,61.743725 47.646729,67.017287 37.65461,72.004498 29.202107,74.829973 23.309964,69.396317 19.557165,61.123609 20.197516,50.002539 18.945387,28.256588 34.472343,17.383515 49.999242,17.383515 Z m 32.39892,5.42183 c 3.82604,-0.02192 6.56847,1.180326 7.63507,4.081659 2.97393,3.567478 0.76577,8.490285 -4.28219,13.84193 -2.07064,-7.05936 -5.983288,-12.640326 -10.975721,-16.735042 2.825042,-0.741209 5.410116,-1.175869 7.622841,-1.188547 z m -2.589857,26.986874 c -0.0037,0.07104 -0.0032,0.139054 -0.0073,0.21032 1.777267,30.866134 -30.244853,39.819542 -48.094598,26.874378 8.46776,-2.922889 17.76183,-7.291612 26.642049,-12.418609 7.771641,-4.486959 15.187278,-9.538819 21.459885,-14.666089 z m -65.558418,9.488816 c 2.072153,7.062273 5.986934,12.645122 10.983059,16.739931 -7.717224,2.022702 -13.582539,1.676121 -15.2676981,-2.907783 -2.97205,-3.565233 -0.758322,-8.48462 4.2846391,-13.832148 z",
-			iconStyle: {
-				marginLeft: tabIcon2n4X,
-				marginTop: tabIcon2n4Y,
-			},
-		},
-		{
-			key: "credits",
-			href: "/credits",
-			handlePath: "M 95.995067,11.129071 C 91.40297,16.228157 84.670971,19.379744 79.619696,21.20879 a 2.179651,2.179651 103.28815 0 0 -0.845506,3.580049 l 9.055624,9.055623 a 4.9298663,4.9298663 10.117874 0 0 5.652632,1.008707 c 0.8304,-0.409213 1.649531,-0.837726 2.506922,-1.316046 A 6.0060753,6.0060753 119.66747 0 0 99,28.251953 V 12.098734 a 1.6911056,1.6911056 17.884402 0 0 -3.004933,-0.969663 z",
-			unpressedSrc: require("../assets/images/tabs/unpressed/5.png"),
-			pressedSrc: require("../assets/images/tabs/pressed/5.png"),
-			iconPath: "m 50.000001,9.9999985 c -8.724026,0 -17.448069,5.3439665 -18.581031,16.0318645 1.003178,9.463585 7.959465,14.735366 15.59594,15.819434 0.771845,2.961506 1.19502,5.922956 1.270157,8.884461 -6.981435,-0.07926 -13.962884,-0.636737 -20.94432,-1.683953 v 6.797775 c 6.958565,-1.043783 13.917158,-1.599583 20.875723,-1.681741 -0.191344,2.920976 -0.721903,5.841784 -1.591017,8.762758 -3.140874,8.828347 -7.902204,16.720825 -14.297015,23.670514 l 5.886094,3.39889 c 2.572827,-8.219437 6.504214,-15.654849 11.783255,-22.311846 5.279476,6.657277 9.210288,14.091965 11.783254,22.311846 l 5.888308,-3.39889 C 61.270141,79.646646 56.50428,71.748609 53.363483,62.912896 52.497562,59.997955 51.970054,57.08278 51.779106,54.167839 c 6.960038,0.08197 13.920111,0.637736 20.880147,1.681741 v -6.797775 c -6.982908,1.047437 -13.965836,1.604885 -20.948745,1.683953 0.07514,-2.961505 0.49831,-5.922955 1.270156,-8.884461 C 60.61941,40.76907 67.577597,35.497835 68.58103,26.031863 67.448068,15.343965 58.724024,9.9999985 50.000001,9.9999985 Z m 0,1.6994445 c 6.458099,0 12.916214,4.777483 11.783253,14.33242 2.265923,19.109875 -25.832431,19.109875 -23.566508,0 -1.132961,-9.554938 5.325153,-14.33242 11.783255,-14.33242 z",
-			iconStyle: {
-				marginLeft: tabIcon1n5X,
-				marginTop: tabIcon1n5Y,
-			},
-		},
-	];
-
-	const tabPressHandle = (i: number) => {
-		if (ActiveTab !== i) {
-			SetActiveTab(i);
-			router.replace(tabArray[i].href);
-		}
-	}
-
-
-	//* Stylesheet
-	const styles = StyleSheet.create({
-		screen: {
-			flex: 1,
-			alignItems: "center",
-			paddingTop: GLOBAL.screen.topOffset + GLOBAL.screen.borderWidth,
-			backgroundColor: ActiveBody?.colors[2],
-		},
-
-		slotMask: {
-			flex: 1,
-			width: GLOBAL.slot.width,
-			maxHeight: GLOBAL.slot.height,
-			overflow: "hidden",
-		},
-
-		slotBG: {
-			position: "absolute",
-			width: "100%",
-			height: "100%",
-			backgroundColor: GLOBAL.ui.colors[1]
-		},
-
-		slot: {
-			position: "absolute",
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-			zIndex: 9990,
-		},
-
-		starField: {
-			position: "absolute",
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-			opacity: 0.3,
-		},
-
-		star: { position: "absolute" },
-
-		tabContainer: {
-			position: "absolute",
-			justifyContent: "center",
-			alignItems: "center",
-			bottom: GLOBAL.screen.bottomOffset + GLOBAL.screen.borderWidth,
-			width: GLOBAL.slot.width,
-			height: GLOBAL.nav.height,
-		},
-
-		tabImg: {
-			position: "absolute",
-			width: "100%",
-			height: "100%",
-		},
-
-		tabIcon: {
-			position: "absolute",
-			width: tabIconDimension,
-			height: tabIconDimension,
-		},
-	});
+	const [tabBeingPressed, setTabBeingPressed] = useState<number | null>(null);
 
 
 	//* Components
 	return (
-		<View style={styles.screen}>			
+		<SafeAreaView style={[styles.screen, { backgroundColor: ActiveBody?.colors[2] }]}>			
 			<StatusBar />
 
 			{/* Tab background */}
 			<Svg
-				style={styles.tabContainer}
+				style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
 				width={GLOBAL.slot.width}
 				height={GLOBAL.nav.height + 1}
 				viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
 			>
 				<Path
 					fill={GLOBAL.ui.colors[0]}
-					d="m 0,0 v 28.332059 c -0.03778138,2.489454 1.2801493,4.802796 3.4408467,6.039661 14.4624933,7.992589 30.9060863,10.183637 42.5586873,10.56318 2.665254,0.0868 5.332628,0.0868 7.997882,0 11.6087,-0.378079 28.073027,-2.557113 42.560152,-10.56318 2.16071,-1.236854 3.478652,-3.550203 3.440849,-6.039661 V 0 Z"
+					d="M 0,0 V 28.332031 C 0,30.54117 1.5075156,33.302376 3.4407579,34.370727 19.64974,43.328153 38.346903,45 49.999512,45 61.582973,45 80.314327,43.348091 96.559726,34.370693 98.49297,33.30236 100.00049,30.54117 100.00049,28.332031 V 0 Z"
 				/>
-
-				{tabArray.map((tab, i) => (
-					<Path
-						key={`tab-path${tab.key}`}
-						fill={(i == ActiveTab) ? ActiveBody?.colors[2] : ActiveBody?.colors[3]}
-						d={tab.handlePath}
-					/>
-				))}
 			</Svg>
 
-			{/* Pressable tab handles (tabs 2-4) */}
-			<Svg
-				style={styles.tabContainer}
-				width={GLOBAL.slot.width}
-				height={GLOBAL.nav.height + 1}
-				viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
-			>
-				{tabArray.map((tab, i) => {
-					if ([1, 2, 3].includes(i)) return (
+			{/* Tab decorations */}
+			{tabArray.map((tab, t) => (
+				<View
+					key={`tab${t}`}
+					style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
+					pointerEvents="none"
+				>
+					<Svg
+						style={[
+							{ width: "100%", height: "100%" },
+							(t !== ActiveTab && t !== tabBeingPressed) && GLOBAL.ui.btnShadowStyle
+						]}
+						width={GLOBAL.slot.width}
+						height={GLOBAL.nav.height + 1}
+						viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
+					>
 						<Path
 							key={`tab-path${tab.key}`}
-							fill="transparent"
+							fill={(t == ActiveTab) ? ActiveBody?.colors[2] : ActiveBody?.colors[3]}
 							d={tab.handlePath}
-							onPress={() => tabPressHandle(i)}
 						/>
-					);
-				})}
-			</Svg>
+					</Svg>
 
+					<ExpoImage
+						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 0 : 1 }]}
+						source={tab.unpressedSrc}
+						contentFit="fill"
+					/>
+
+					<ExpoImage
+						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 1 : 0 }]}
+						source={tab.pressedSrc}
+						contentFit="fill"
+					/>
+
+					{/* Tab icons */}
+					<Svg
+						style={[
+							styles.tabIcon,
+							tab.iconStyle,
+							(t !== ActiveTab) && GLOBAL.ui.btnShadowStyle
+						]}
+						viewBox="0 0 100 100"
+					>
+						<Path
+							fill={(t === ActiveTab) ? ActiveBody?.colors[4] : GLOBAL.ui.colors[0]}
+							stroke={(t === ActiveTab) ? ActiveBody?.colors[4] : GLOBAL.ui.colors[0]}
+							strokeWidth={2}
+							d={(t == 2) ? ActiveBody?.icon! : tab.iconPath}
+						/>
+					</Svg>
+				</View>
+			))}
+
+			{/* Slot mask */}
 			<MaskedView
 				style={styles.slotMask}
 				maskElement={
@@ -298,74 +314,80 @@ export default function Layout() {
 			>
 				<View style={styles.slotBG} pointerEvents="none"></View>
 
-				{/* <StarField numStars={50} starAngle={10} /> */}
+				<StarField />
 
 				<Slot />
 			</MaskedView>
 
-			<View style={styles.tabContainer}>
-				{tabArray.map((tab, i) => {
-					if ([0, 4].includes(i)) return (
-						<Pressable
-							key={`tab-handle${i}`}
-							style={{
-								position: "absolute",
-								top: "28%",
-								left: (i == 0) ? "-2%" : "auto",
-								right: (i == 4) ? "-2%" : "auto",
-								width: 0.19 * GLOBAL.slot.width,
-								height: "52%",
-								// opacity: 0.5,
-								// backgroundColor: "limegreen",
+			{/* Tab handles */}
+			<View
+				style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
+				pointerEvents="box-none"
+			>
+				{[2,1,3,0,4].map((t, i) => (
+					<Pressable
+						key={`tab-handle${i}`}
+						style={[
+							{ position: "absolute" },
+							(t == 0 || t == 3) && {
+								top: "31%",
+								left: (t == 0) ? "-1%" : "auto",
+								right: (t == 3) ? "-1%" : "auto",
+								width: 0.18 * GLOBAL.slot.width,
+								height: "50%",
+								// backgroundColor: "#f00a",
 								borderTopLeftRadius: "60%",
-								// borderTopRightRadius: "80%",
 								borderBottomLeftRadius: "40%",
-								// borderBottomRightRadius: "50%",
-								transform: [{ scaleX: (i == 4) ? -1 : 1 }, { rotate: "-55deg" }],
-							}}
-							onPress={() => tabPressHandle(i)}
-						></Pressable>
-					);
-				})}
-			</View>
-
-			{/* Unpressed/pressed tab PNGs */}
-			<View style={styles.tabContainer} pointerEvents="none">
-				{tabArray.map((tab, i) => (
-					<ExpoImage
-						key={`unpressed-img${tab.key}`}
-						style={[styles.tabImg, { opacity: i === ActiveTab ? 0 : 1 }]}
-						source={tab.unpressedSrc}
-						contentFit="fill"
-					/>
+								transform: [
+									{ scaleX: (t == 3) ? -1 : 1 },
+									{ rotate: "-60deg" },
+								],
+							},
+							(t == 1) && {
+								bottom: "10%",
+								left: (t == 1) ? "13.5%" : "auto",
+								width: 0.25 * GLOBAL.slot.width,
+								height: "38%",
+								// backgroundColor: "#0f0a",
+								borderTopLeftRadius: "60%",
+								borderTopRightRadius: "10%",
+								borderBottomLeftRadius: "20%",
+								borderBottomRightRadius: "20%",
+								transform: [{ rotate: "14deg" }],
+							},
+							(t == 2) && {
+								right: "13%",
+								bottom: "6%",
+								width: 0.5 * GLOBAL.slot.width,
+								height: "39%",
+								// backgroundColor: "#00fa",
+								borderTopLeftRadius: "20%",
+								borderTopRightRadius: "40%",
+								borderBottomLeftRadius: "20%",
+								borderBottomRightRadius: "20%",
+								transform: [{ rotate: "-6deg" }],
+							},
+						]}
+						pointerEvents="auto"
+						onPressIn={() => {
+							if (t !== ActiveTab) {
+								setTabBeingPressed(t);
+							}
+						}}
+						onPress={() => {
+							if (t !== ActiveTab) {
+								SetActiveTab(t);
+								router.replace(tabArray[t].href);
+							}
+						}}
+						onPressOut={() => {
+							if (t !== ActiveTab) {
+								setTabBeingPressed(null);
+							}
+						}}
+					></Pressable>
 				))}
-				{tabArray.map((tab, i) => (
-					<ExpoImage
-						key={`pressed-img${tab.key}`}
-						style={[styles.tabImg, { opacity: i === ActiveTab ? 1 : 0 }]}
-						source={tab.pressedSrc}
-						contentFit="fill"
-					/>
-				))}
 			</View>
-
-			{/* Tab icons */}
-			<View style={styles.tabContainer} pointerEvents="none">
-				{tabArray.map((tab, i) => (
-					<Svg
-						key={`tab-icon${tab.key}`}
-						style={[styles.tabIcon, tab.iconStyle, (i !== ActiveTab) && GLOBAL.ui.btnShadowStyle]}
-						viewBox="0 0 100 100"
-					>
-						<Path
-							fill={(i === ActiveTab) ? GLOBAL.ui.colors[1] : GLOBAL.ui.colors[0]}
-							stroke={(i === ActiveTab) ? GLOBAL.ui.colors[1] : GLOBAL.ui.colors[0]}
-							strokeWidth={2}
-							d={tab.iconPath}
-						/>
-					</Svg>
-				))}
-			</View>
-		</View>
+		</SafeAreaView>
 	);
 }

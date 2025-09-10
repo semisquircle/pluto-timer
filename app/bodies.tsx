@@ -1,11 +1,14 @@
+import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow, SlotTopShadow } from "@/ref/slot-shadows";
+import { AllBodies, CelestialBody, SolarSystem } from "@/ref/solar-system";
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { Circle, ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
-import * as GLOBAL from "../ref/global";
-import { AllBodies, CelestialBody, SolarSystem } from "../ref/solar-system";
+
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 
 interface bodyBtnInterface {
@@ -14,10 +17,28 @@ interface bodyBtnInterface {
 	isInterested: boolean,
 	onPress: () => void,
 	onDisplay: () => void,
-};
+}
 function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnInterface) {
 	const [isImgDisplayed, setIsImgDisplayed] = useState<boolean>(false);
 	const newDiameter = (body.hasRings) ? 3 * diameter : diameter;
+
+	const bodyInterestProgress = useSharedValue(0);
+	useEffect(() => {
+		bodyInterestProgress.value = withTiming(
+			(isInterested) ? 1 : 0,
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+		);
+	}, [isInterested]);
+
+	const bodyAnimStyle = useAnimatedStyle(() => {
+		return {
+			backgroundColor: interpolateColor(
+				bodyInterestProgress.value,
+				[0, 1],
+				["transparent", GLOBAL.ui.colors[0]]
+			),
+		};
+	});
 
 	return (
 		<View style={{
@@ -27,7 +48,7 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 			width: diameter + (2 * GLOBAL.ui.inputBorderWidth),
 			height: diameter + (2 * GLOBAL.ui.inputBorderWidth),
 		}}>
-			<Pressable
+			<AnimatedPressable
 				style={[
 					{
 						position: "absolute",
@@ -35,13 +56,13 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 						alignItems: "center",
 						width: diameter + (2 * GLOBAL.ui.inputBorderWidth),
 						height: diameter + (2 * GLOBAL.ui.inputBorderWidth),
-						backgroundColor: (isInterested) ? GLOBAL.ui.colors[0] : "transparent",
 						borderRadius: "50%",
 					},
+					bodyAnimStyle
 				]}
 				onPress={onPress}
 			>
-			</Pressable>
+			</AnimatedPressable>
 
 			{(!isImgDisplayed) &&
 				<View
@@ -61,7 +82,7 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 					position: "absolute",
 					width: newDiameter,
 					height: newDiameter,
-					marginBottom: (body.hasRings) ? 1 : 0,
+					marginBottom: 0.5,
 				}}
 				source={body.thumbnail}
 				onDisplay={() => {
@@ -76,20 +97,29 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 
 
 export default function BodiesScreen() {
-	//* Global app storage
-	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+	//* App storage
+	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 
-	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
+	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 
-	const SavedCities = GLOBAL.useAppStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useAppStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useAppStore((state) => state.unshiftSavedCity);
+	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
+	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
+	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
-	const ActiveCityIndex = GLOBAL.useAppStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useAppStore((state) => state.setActiveCityIndex);
+	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
+	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
+
+	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
+	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
+
+	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
+	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
+
+	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
+	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//* Sol animation
@@ -106,7 +136,10 @@ export default function BodiesScreen() {
 	useEffect(() => {
 		if (isSolSpriteSheetDisplayed) {
 			solFrameSV.value = withRepeat(
-				withTiming(totalSolFrames - 1, { duration: 1000 * solAnimDuration, easing: Easing.linear }), -1, false
+				withTiming(
+					totalSolFrames - 1,
+					{ duration: 1000 * solAnimDuration, easing: Easing.linear })
+				, -1, false
 			);
 		}
 	}, [isSolSpriteSheetDisplayed]);
@@ -147,7 +180,10 @@ export default function BodiesScreen() {
 	const orbitDuration = 15; // Seconds
 	useEffect(() => {
 		orbitRot.value = withRepeat(
-			withTiming(360, { duration: 1000 * orbitDuration, easing: Easing.linear }), -1, false
+			withTiming(
+				360,
+				{ duration: 1000 * orbitDuration, easing: Easing.linear }
+			), -1, false
 		);
 	}, []);
 
@@ -157,16 +193,15 @@ export default function BodiesScreen() {
 	const boiPopupWidth = GLOBAL.slot.width - 2 * boiPopupOffset;
 	const boiPopupHeight = 0.6 * GLOBAL.slot.width;
 	const boiPopupBorderRadius = GLOBAL.slot.borderRadius;
-	const boiPopupPadding = GLOBAL.screen.borderWidth / 2;
+	const boiPopupPadding = 3 * GLOBAL.ui.inputBorderWidth;
 
 	const [boi, setBoi] = useState<CelestialBody | null>(null);
 	const [isBodyInterested, setIsBodyInterested] = useState<boolean>(false);
-	const boiPopupAnimDuration = 0.3; // Seconds
 	const boiPopupAnimSV = useSharedValue(-boiPopupHeight);
 	useEffect(() => {
 		boiPopupAnimSV.value = withTiming(
 			(isBodyInterested) ? boiPopupOffset : -boiPopupHeight,
-			{ duration: 1000 * boiPopupAnimDuration, easing: Easing.out(Easing.cubic) }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
 		);
 	}, [isBodyInterested]);
 
@@ -174,10 +209,10 @@ export default function BodiesScreen() {
 		return { bottom: boiPopupAnimSV.value };
 	});
 
-	const [boiPopupCloseBtnColor, setBoiPopupCloseBtnColor] = useState<any>(ActiveBody?.colors[3]);
-	const boiPopupCloseBtnDimension = 2 * (boiPopupBorderRadius - 2 * boiPopupPadding);
+	const [isBoiPopupCloseBtnPressed, setIsBoiPopupCloseBtnPressed] = useState<boolean>(false);
+	const boiPopupCloseBtnDimension = (2 * boiPopupBorderRadius) - (5 * GLOBAL.ui.inputBorderWidth) - (2 * boiPopupPadding);
 
-	const [boiPopupUseBtnColor, setBoiPopupUseBtnColor] = useState<any>(ActiveBody?.colors[3]);
+	const [isBoiPopupUseBtnPressed, setIsBoiPopupUseBtnPressed] = useState<boolean>(false);
 	const boiPopupUseBtnBorderRadius = GLOBAL.screen.borderWidth;
 	const boiPopupUseBtnWidth = boiPopupWidth - (2 * boiPopupPadding);
 	const boiPopupUseBtnHeight = boiPopupUseBtnBorderRadius + (GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding);
@@ -261,8 +296,6 @@ export default function BodiesScreen() {
 
 		boiPopupSvg: {
 			position: "absolute",
-			width: "100%",
-			height: "100%",
 		},
 
 		boiPopupName: {
@@ -280,17 +313,15 @@ export default function BodiesScreen() {
 			right: boiPopupPadding,
 			width: boiPopupCloseBtnDimension,
 			height: boiPopupCloseBtnDimension,
+			backgroundColor: ActiveBody?.colors[3],
 			borderRadius: "50%",
-			overflow: "hidden",
 		},
 
 		boiPopupCloseBtnSvg: {
 			position: "absolute",
-			width: "100%",
-			height: "100%"
 		},
 
-		boiPopupBtnContainer: {
+		boiPopupUseBtnContainer: {
 			position: "absolute",
 			bottom: boiPopupPadding,
 			justifyContent: "center",
@@ -299,17 +330,17 @@ export default function BodiesScreen() {
 			height: boiPopupUseBtnHeight,
 		},
 
-		boiPopupBtnSvg: {
+		boiPopupUseBtnSvg: {
 			position: "absolute",
 			width: boiPopupUseBtnWidth,
 			height: boiPopupUseBtnHeight,
 		},
 
-		boiPopupBtnTextContainer: {
+		boiPopupUseBtnTextContainer: {
 			position: "absolute",
 		},
 
-		boiPopupBtnText: {
+		boiPopupUseBtnText: {
 			fontFamily: "Trickster-Reg",
 			fontSize: GLOBAL.ui.bodyTextSize,
 			marginBottom: 0.5 * GLOBAL.ui.bodyTextSize,
@@ -515,7 +546,12 @@ export default function BodiesScreen() {
 			<SlotBottomShadow />
 
 			<Animated.View style={[styles.boiPopup, boiPopupAnimStyle]}>
-				<Svg style={styles.boiPopupSvg} viewBox={`0 0 ${boiPopupWidth} ${boiPopupHeight}`}>
+				<Svg
+					style={styles.boiPopupSvg}
+					width="100%"
+					height="100%"
+					viewBox={`0 0 ${boiPopupWidth} ${boiPopupHeight}`}
+				>
 					<Path
 						fill={GLOBAL.ui.colors[0]}
 						d={`
@@ -535,19 +571,24 @@ export default function BodiesScreen() {
 				<Text style={styles.boiPopupName}>{boi?.name}</Text>
 
 				<Pressable
-					style={[styles.boiPopupCloseBtnContainer, { backgroundColor: boiPopupCloseBtnColor }]}
+					style={[
+						styles.boiPopupCloseBtnContainer,
+						(!isBoiPopupCloseBtnPressed) && GLOBAL.ui.btnShadowStyle,
+					]}
 					onPressIn={() => {
-						setBoiPopupCloseBtnColor(ActiveBody?.colors[4]);
+						setIsBoiPopupCloseBtnPressed(true);
 					}}
 					onPress={() => {
 						setIsBodyInterested(false);
 					}}
 					onPressOut={() => {
-						setBoiPopupCloseBtnColor(ActiveBody?.colors[3]);
+						setIsBoiPopupCloseBtnPressed(false);
 					}}
 				>
 					<Svg
 						style={styles.boiPopupCloseBtnSvg}
+						width="100%"
+						height="100%"
 						viewBox={`0 0 ${boiPopupCloseBtnDimension} ${boiPopupCloseBtnDimension}`}
 					>
 						<Defs>
@@ -563,7 +604,7 @@ export default function BodiesScreen() {
 
 							<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
 								<Stop offset="0%" stopColor="black" stopOpacity="0" />
-								<Stop offset="100%" stopColor="black" stopOpacity="0.4" />
+								<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
 							</LinearGradient>
 
 							<ClipPath id="top-blob-clip">
@@ -582,6 +623,7 @@ export default function BodiesScreen() {
 							fill="url(#bottom-blob)"
 							stroke="url(#stroke)"
 							strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+							clipPath="url(#top-blob-clip)"
 						/>
 
 						<Ellipse
@@ -607,10 +649,97 @@ export default function BodiesScreen() {
 					</Svg>
 				</Pressable>
 
-				<View style={styles.boiPopupBtnContainer}>
-					<Svg style={styles.boiPopupBtnSvg} viewBox={`0 0 ${boiPopupUseBtnWidth} ${boiPopupUseBtnHeight}`}>
+				<View style={styles.boiPopupUseBtnContainer}>
+					<Svg
+						style={[
+							styles.boiPopupUseBtnSvg,
+							(!isBoiPopupUseBtnPressed) && GLOBAL.ui.btnShadowStyle,
+						]}
+						width="100%"
+						height="100%"
+						viewBox={`0 0 ${boiPopupUseBtnWidth} ${boiPopupUseBtnHeight}`}
+					>
+						<Defs>
+							<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
+								<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
+								<Stop offset="100%" stopColor="white" stopOpacity="0" />
+							</LinearGradient>
+
+							<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
+								gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (boiPopupUseBtnWidth - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
+							>
+								<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
+								<Stop offset="100%" stopColor="white" stopOpacity="0" />
+							</RadialGradient>
+
+							<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
+								<Stop offset="0%" stopColor="black" stopOpacity="0" />
+								<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
+							</LinearGradient>
+
+							<ClipPath id="btn-outline">
+								<Path
+									fill="transparent"
+									d={`
+										M 0,${boiPopupUseBtnBorderRadius}
+										v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+										A ${boiPopupUseBtnWidth / 2} ${GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding}
+											0 0 0 ${boiPopupUseBtnWidth},${boiPopupUseBtnHeight - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+										v ${-(boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding)}
+										q 0,${-boiPopupUseBtnBorderRadius} ${-boiPopupUseBtnBorderRadius},${-boiPopupUseBtnBorderRadius}
+										h ${-(boiPopupUseBtnWidth - (2 * boiPopupUseBtnBorderRadius))}
+										q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
+										z
+									`}
+								/>
+							</ClipPath>
+						</Defs>
+
+
 						<Path
-							fill={(boi?.canUse) ? boiPopupUseBtnColor : "#777"}
+							fill={(boi?.canUse) ? ActiveBody?.colors[3] : "#777"}
+							d={`
+								M 0,${boiPopupUseBtnBorderRadius}
+								v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+								A ${boiPopupUseBtnWidth / 2} ${GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding}
+									0 0 0 ${boiPopupUseBtnWidth},${boiPopupUseBtnHeight - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+								v ${-(boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding)}
+								q 0,${-boiPopupUseBtnBorderRadius} ${-boiPopupUseBtnBorderRadius},${-boiPopupUseBtnBorderRadius}
+								h ${-(boiPopupUseBtnWidth - (2 * boiPopupUseBtnBorderRadius))}
+								q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
+								z
+							`}
+						/>
+
+						<Path
+							fill="url(#bottom-blob)"
+							stroke="url(#stroke)"
+							strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+							d={`
+								M 0,${boiPopupUseBtnBorderRadius}
+								v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+								A ${boiPopupUseBtnWidth / 2} ${GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding}
+									0 0 0 ${boiPopupUseBtnWidth},${boiPopupUseBtnHeight - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
+								v ${-(boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding)}
+								q 0,${-boiPopupUseBtnBorderRadius} ${-boiPopupUseBtnBorderRadius},${-boiPopupUseBtnBorderRadius}
+								h ${-(boiPopupUseBtnWidth - (2 * boiPopupUseBtnBorderRadius))}
+								q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
+								z
+							`}
+							clipPath="url(#btn-outline)"
+						/>
+
+						<Rect
+							fill="url(#top-blob)"
+							x={GLOBAL.ui.inputBorderWidth}
+							y={GLOBAL.ui.inputBorderWidth}
+							width={boiPopupUseBtnWidth - (2 * GLOBAL.ui.inputBorderWidth)}
+							height={2 * (boiPopupUseBtnBorderRadius - 2 * GLOBAL.ui.inputBorderWidth)}
+							rx={boiPopupUseBtnBorderRadius - 2 * GLOBAL.ui.inputBorderWidth}
+						/>
+
+						<Path
+							fill="transparent"
 							d={`
 								M 0,${boiPopupUseBtnBorderRadius}
 								v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
@@ -624,94 +753,28 @@ export default function BodiesScreen() {
 							`}
 							onPressIn={() => {
 								if (boi?.canUse) {
-									setBoiPopupUseBtnColor(ActiveBody?.colors[4]);
+									setIsBoiPopupUseBtnPressed(true);
 								}
 							}}
 							onPress={() => {
 								if (boi?.canUse) {
-									SetActiveBody(boi!);
+									SetActiveBody(boi?.name);
 									setIsBodyInterested(false);
-									SavedCities.forEach(loc => {
-										loc.setNextBodyTime(ActiveBody);
+									SavedCities.forEach((city) => {
+										city.setNextBodyTime(ActiveBody!);
 									});
 								}
 							}}
 							onPressOut={() => {
 								if (boi?.canUse) {
-									setBoiPopupUseBtnColor(ActiveBody?.colors[3]);
+									setIsBoiPopupUseBtnPressed(false);
 								}
 							}}
 						/>
 					</Svg>
 
-					<View style={styles.boiPopupBtnSvg} pointerEvents="none">
-						<Svg style={styles.boiPopupBtnSvg} viewBox={`0 0 ${boiPopupUseBtnWidth} ${boiPopupUseBtnHeight}`}>
-							<Defs>
-								<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
-									<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-									<Stop offset="100%" stopColor="white" stopOpacity="0" />
-								</LinearGradient>
-
-								<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
-									gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (boiPopupUseBtnWidth - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
-								>
-									<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-									<Stop offset="100%" stopColor="white" stopOpacity="0" />
-								</RadialGradient>
-
-								<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
-									<Stop offset="0%" stopColor="black" stopOpacity="0" />
-									<Stop offset="100%" stopColor="black" stopOpacity="0.4" />
-								</LinearGradient>
-
-								<ClipPath id="btn-outline">
-									<Path
-										d={`
-											M 0,${boiPopupUseBtnBorderRadius}
-											v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
-											A ${boiPopupUseBtnWidth / 2} ${GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding}
-												0 0 0 ${boiPopupUseBtnWidth},${boiPopupUseBtnHeight - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
-											v ${-(boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding)}
-											q 0,${-boiPopupUseBtnBorderRadius} ${-boiPopupUseBtnBorderRadius},${-boiPopupUseBtnBorderRadius}
-											h ${-(boiPopupUseBtnWidth - (2 * boiPopupUseBtnBorderRadius))}
-											q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
-											z
-										`}
-									/>
-								</ClipPath>
-							</Defs>
-
-							<Rect
-								fill="url(#top-blob)"
-								x={GLOBAL.ui.inputBorderWidth}
-								y={GLOBAL.ui.inputBorderWidth}
-								width={boiPopupUseBtnWidth - (2 * GLOBAL.ui.inputBorderWidth)}
-								height={2 * (boiPopupUseBtnBorderRadius - 2 * GLOBAL.ui.inputBorderWidth)}
-								rx={boiPopupUseBtnBorderRadius - 2 * GLOBAL.ui.inputBorderWidth}
-							/>
-
-							<Path
-								fill="url(#bottom-blob)"
-								stroke="url(#stroke)"
-								strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-								d={`
-									M 0,${boiPopupUseBtnBorderRadius}
-									v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
-									A ${boiPopupUseBtnWidth / 2} ${GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding}
-										0 0 0 ${boiPopupUseBtnWidth},${boiPopupUseBtnHeight - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
-									v ${-(boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding)}
-									q 0,${-boiPopupUseBtnBorderRadius} ${-boiPopupUseBtnBorderRadius},${-boiPopupUseBtnBorderRadius}
-									h ${-(boiPopupUseBtnWidth - (2 * boiPopupUseBtnBorderRadius))}
-									q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
-									z
-								`}
-								clipPath="url(#btn-outline)"
-							/>
-						</Svg>
-					</View>
-
-					<View style={styles.boiPopupBtnTextContainer} pointerEvents="none">
-						<Text style={[styles.boiPopupBtnText, GLOBAL.ui.btnShadowStyle]}>
+					<View style={styles.boiPopupUseBtnTextContainer} pointerEvents="none">
+						<Text style={[styles.boiPopupUseBtnText, GLOBAL.ui.btnShadowStyle]}>
 							{(boi?.canUse) ? `Use ${boi?.name} Time` : `${boi?.name} Time Unavailable`}
 						</Text>
 					</View>

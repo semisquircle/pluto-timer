@@ -1,15 +1,15 @@
+import * as GLOBAL from "@/ref/global";
 import { SlotTopShadow } from "@/ref/slot-shadows";
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
 import { Defs, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
-import * as GLOBAL from "../ref/global";
 
 
 //* Fonts
 const bodyTimeFontPrefs: any[] = [
 	{
-		name: "Hades-Tall",
+		name: "Hades-TallFat",
 		spacing: 1,
 		glyphHeight: 57.5,
 		glyphWidths: {
@@ -36,7 +36,34 @@ const bodyTimeFontPrefs: any[] = [
 		}
 	},
 	{
-		name: "Hades-Short",
+		name: "Hades-ShortFat",
+		spacing: 1,
+		glyphHeight: 44.5,
+		glyphWidths: {
+			"A": 12,
+			"M": 18.5,
+			"N": 18.5,
+			"O": 12,
+			"P": 12,
+			"W": 18.5,
+
+			"0": 12,
+			"1": 5.5,
+			"2": 12,
+			"3": 12,
+			"4": 12,
+			"5": 12,
+			"6": 12,
+			"7": 12,
+			"8": 12,
+			"9": 12,
+
+			":": 5.5,
+			"!": 5.5
+		}
+	},
+	{
+		name: "Hades-ShortSkinny",
 		spacing: 1.5,
 		glyphHeight: 51.5,
 		glyphWidths: {
@@ -66,20 +93,29 @@ const bodyTimeFontPrefs: any[] = [
 
 
 export default function HomeScreen() {
-	//* Global app storage
-	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+	//* App storage
+	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 
-	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
+	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 
-	const SavedCities = GLOBAL.useAppStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useAppStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useAppStore((state) => state.unshiftSavedCity);
+	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
+	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
+	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
-	const ActiveCityIndex = GLOBAL.useAppStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useAppStore((state) => state.setActiveCityIndex);
+	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
+	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
+
+	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
+	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
+
+	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
+	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
+
+	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
+	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//* Body rotation animation/dragging
@@ -149,7 +185,7 @@ export default function HomeScreen() {
 
 	//* Finger animation
 	const fingerTranslateDistance = 100;
-	const fingerTheta = ActiveBody?.axialTilt * Math.PI / 180;
+	const fingerTheta = ActiveBody?.axialTilt! * (Math.PI / 180);
 	const fingerDx = Math.cos(fingerTheta);
 	const fingerDy = Math.sin(fingerTheta);
 

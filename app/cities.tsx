@@ -1,28 +1,242 @@
+import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow } from "@/ref/slot-shadows";
 import allCities from "cities.json" with { type: "json" };
 import allCitiesAdmin1 from "cities.json/admin1.json" with { type: "json" };
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
-import * as GLOBAL from "../ref/global";
+
+
+//* Reanimated
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedSvg = Animated.createAnimatedComponent(Svg);
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
+
+//* City input
+const cityInputHeight = 45;
+const citySearchSvgDimension = 0.6 * cityInputHeight;
+
+
+//* Text fitting
+const cityHeight = 110;
+const cityPadding = GLOBAL.screen.borderWidth;
+const cityDateTextSize = GLOBAL.ui.bodyTextSize;
+const cityTimeTextSize = cityHeight - cityDateTextSize - GLOBAL.ui.inputBorderWidth;
+
+function toDMS(coord: number, isLat: boolean) {
+	const deg = Math.floor(Math.abs(coord));
+	const minFloat = (Math.abs(coord) - deg) * 60;
+	const min = Math.floor(minFloat);
+	const sec = ((minFloat - min) * 60).toFixed(2);
+
+	let dir;
+	if (isLat) dir = (coord >= 0) ? "N" : "S";
+	else dir = (coord >= 0) ? "E" : "W";
+
+	return `${deg}° ${min}' ${sec}" ${dir}`;
+}
+
+
+//* Stylesheet
+const styles = StyleSheet.create({
+	content: {
+		width: GLOBAL.slot.width,
+		height: GLOBAL.slot.height,
+		overflow: "hidden",
+	},
+
+	skewContainer: {
+		width: "100%",
+		height: "100%",
+		padding: GLOBAL.screen.borderWidth,
+		paddingTop: GLOBAL.screen.borderWidth,
+	},
+
+	focusDarken: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		width: GLOBAL.slot.width,
+		height: GLOBAL.slot.height,
+		backgroundColor: GLOBAL.ui.colors[1],
+		zIndex: 9990,
+	},
+
+	title: {
+		width: "100%",
+		fontFamily: "Trickster-Reg",
+		fontSize: 30,
+		marginBottom: GLOBAL.screen.borderWidth,
+		color: GLOBAL.ui.colors[0],
+		zIndex: 9997,
+	},
+
+	citySearchContainer: {
+		position: "relative",
+		zIndex: 9997,
+	},
+
+	cityInputWrapper: {
+		flexDirection: "row",
+		alignItems: "center",
+		width: "100%",
+		height: cityInputHeight,
+		paddingHorizontal: cityPadding,
+		borderColor: GLOBAL.ui.colors[0],
+		borderWidth: GLOBAL.ui.inputBorderWidth,
+		borderRadius: GLOBAL.screen.borderWidth,
+		backgroundColor: GLOBAL.ui.colors[1],
+		color: GLOBAL.ui.colors[1],
+		zIndex: 9999,
+	},
+
+	citySearchSvg: {
+		width: citySearchSvgDimension,
+		height: citySearchSvgDimension,
+		marginRight: (cityInputHeight - (2 * GLOBAL.ui.inputBorderWidth) - citySearchSvgDimension) / 2,
+	},
+
+	cityInput: {
+		flex: 1,
+		fontFamily: "Trickster-Reg",
+		fontSize: GLOBAL.ui.bodyTextSize,
+		marginBottom: 0.1 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.colors[0],
+	},
+
+	cityResultContainer: {
+		position: "absolute",
+		top: cityInputHeight - GLOBAL.screen.borderWidth,
+		width: "100%",
+		paddingTop: 3 * GLOBAL.screen.borderWidth,
+		borderBottomLeftRadius: GLOBAL.screen.borderWidth,
+		borderBottomRightRadius: GLOBAL.screen.borderWidth,
+		zIndex: 9998,
+	},
+
+	cityResult: {
+		justifyContent: "center",
+		width: "100%",
+		// height: cityInputHeight,
+		paddingLeft: GLOBAL.screen.borderWidth,
+	},
+
+	cityResultText: {
+		fontFamily: "Trickster-Reg",
+		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.colors[0],
+	},
+
+	cityScrollContainer: {
+		width: "100%",
+		minHeight: GLOBAL.slot.height,
+		paddingTop: 2 * GLOBAL.screen.borderWidth,
+		marginTop: -GLOBAL.screen.borderWidth,
+		overflow: "hidden",
+	},
+
+	city: {
+		height: cityHeight,
+		borderRadius: GLOBAL.screen.borderWidth,
+		overflow: "hidden",
+	},
+
+	cityWrapper: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		width: "100%",
+		height: "100%",
+		padding: cityPadding,
+		paddingLeft: 1.2 * cityPadding,
+	},
+
+	citySvg: {
+		position: "absolute",
+		left: 0,
+	},
+
+	cityNameContainer: {
+		flex: 1,
+		height: "100%",
+	},
+
+	cityName: {
+		fontFamily: "Trickster-Reg",
+		fontSize: GLOBAL.ui.bodyTextSize,
+	},
+
+	youAreHere: {
+		fontFamily: "Trickster-Reg-Arrow",
+		fontSize: 0.6 * GLOBAL.ui.bodyTextSize,
+	},
+
+	cityLat: {
+		fontFamily: "Trickster-Reg",
+		fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
+		marginTop: "auto",
+		color: GLOBAL.ui.colors[0],
+	},
+
+	cityLon: {
+		fontFamily: "Trickster-Reg",
+		fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.colors[0],
+	},
+
+	cityTimeContainer: {
+		justifyContent: "space-between",
+		height: "100%",
+	},
+
+	cityBodyTime: {
+		textAlign: "right",
+		fontFamily: "Hades-ShortSkinny",
+		fontSize: cityTimeTextSize - GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.colors[0],
+	},
+
+	cityBodyDate: {
+		textAlign: "right",
+		fontFamily: "Trickster-Reg",
+		fontSize: cityDateTextSize,
+		lineHeight: cityDateTextSize,
+	},
+
+	cityScrollSpacer: {
+		width: "100%",
+		height: 2.2 * GLOBAL.slot.ellipseSemiMinor,
+	},
+});
 
 
 export default function CitiesScreen() {
-	//* Global app storage
-	const ActiveTab = GLOBAL.useAppStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useAppStore((state) => state.setActiveTab);
+	//* App storage
+	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
+	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 
-	const ActiveBody = GLOBAL.useAppStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useAppStore((state) => state.setActiveBody);
+	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
+	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 
-	const SavedCities = GLOBAL.useAppStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useAppStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useAppStore((state) => state.unshiftSavedCity);
+	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
+	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
+	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
-	const ActiveCityIndex = GLOBAL.useAppStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useAppStore((state) => state.setActiveCityIndex);
+	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
+	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
+
+	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
+	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
+
+	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
+	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
+
+	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
+	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//! Hacky fix
@@ -33,9 +247,7 @@ export default function CitiesScreen() {
 	}, [ActiveTab]);
 
 
-	//* City search
-	const cityInputHeight = 45;
-	const citySearchSvgDimension = 0.6 * cityInputHeight;
+	//* City input
 	const cityInputRef = useRef<TextInput>(null);
 	const [cityInputValue, setCityInputValue] = useState<string>("");
 	const [isCityInputFocused, setIsCityInputFocused] = useState<boolean>(false);
@@ -65,214 +277,15 @@ export default function CitiesScreen() {
 	const scrollRef = useRef<ScrollView>(null);
 
 
-	//* Text fitting
-	const locationHeight = 110;
-	const locationPadding = GLOBAL.screen.borderWidth;
-	const locationDateTextSize = GLOBAL.ui.bodyTextSize;
-	const locationTimeTextSize = locationHeight - locationDateTextSize - GLOBAL.ui.inputBorderWidth;
-
-	function toDMS(coord: number, isLat: boolean) {
-		const deg = Math.floor(Math.abs(coord));
-		const minFloat = (Math.abs(coord) - deg) * 60;
-		const min = Math.floor(minFloat);
-		const sec = ((minFloat - min) * 60).toFixed(2);
-
-		let dir;
-		if (isLat) dir = (coord >= 0) ? "N" : "S";
-		else dir = (coord >= 0) ? "E" : "W";
-
-		return `${deg}° ${min}' ${sec}" ${dir}`;
-	}
-
-
-	//* Stylesheet
-	const styles = StyleSheet.create({
-		content: {
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-			overflow: "hidden",
-		},
-
-		skewContainer: {
-			width: "100%",
-			height: "100%",
-			padding: GLOBAL.screen.borderWidth,
-			paddingTop: GLOBAL.screen.borderWidth,
-		},
-
-		focusDarken: {
-			position: "absolute",
-			top: 0,
-			left: 0,
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-			opacity: (isCityInputFocused) ? 1 : 0,
-			backgroundColor: GLOBAL.ui.colors[1],
-			zIndex: 9990,
-		},
-
-		title: {
-			width: "100%",
-			fontFamily: "Trickster-Reg",
-			fontSize: 30,
-			marginBottom: GLOBAL.screen.borderWidth,
-			color: GLOBAL.ui.colors[0],
-			zIndex: 9997,
-		},
-
-		citySearchContainer: {
-			position: "relative",
-			zIndex: 9997,
-		},
-
-		cityInputWrapper: {
-			flexDirection: "row",
-			alignItems: "center",
-			width: "100%",
-			height: cityInputHeight,
-			paddingHorizontal: locationPadding,
-			borderColor: GLOBAL.ui.colors[0],
-			borderWidth: GLOBAL.ui.inputBorderWidth,
-			borderRadius: GLOBAL.screen.borderWidth,
-			backgroundColor: GLOBAL.ui.colors[1],
-			color: GLOBAL.ui.colors[1],
-			zIndex: 9999,
-		},
-
-		citySearchSvg: {
-			width: citySearchSvgDimension,
-			height: citySearchSvgDimension,
-			marginRight: (cityInputHeight - (2 * GLOBAL.ui.inputBorderWidth) - citySearchSvgDimension) / 2,
-		},
-
-		cityInput: {
-			flex: 1,
-			fontFamily: "Trickster-Reg",
-			fontSize: GLOBAL.ui.bodyTextSize,
-			marginBottom: 0.1 * GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
-		},
-
-		cityResultContainer: {
-			position: "absolute",
-			top: cityInputHeight - GLOBAL.screen.borderWidth,
-			display: (isCityInputFocused) ? "flex" : "none",
-			width: "100%",
-			paddingTop: 3 * GLOBAL.screen.borderWidth,
-			borderBottomLeftRadius: GLOBAL.screen.borderWidth,
-			borderBottomRightRadius: GLOBAL.screen.borderWidth,
-			zIndex: 9998,
-		},
-
-		cityResult: {
-			justifyContent: "center",
-			width: "100%",
-			// height: cityInputHeight,
-			paddingLeft: GLOBAL.screen.borderWidth,
-		},
-
-		cityResultText: {
-			fontFamily: "Trickster-Reg",
-			fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
-		},
-
-		cityScrollContainer: {
-			width: "100%",
-			minHeight: GLOBAL.slot.height,
-			paddingTop: 2 * GLOBAL.screen.borderWidth,
-			marginTop: -GLOBAL.screen.borderWidth,
-			overflow: "hidden",
-		},
-
-		city: {
-			height: locationHeight,
-			borderRadius: GLOBAL.screen.borderWidth,
-			overflow: "hidden",
-		},
-
-		cityWrapper: {
-			flexDirection: "row",
-			justifyContent: "space-between",
-			alignItems: "center",
-			width: "100%",
-			height: "100%",
-			padding: locationPadding,
-			paddingLeft: 1.2 * locationPadding,
-		},
-
-		citySvg: {
-			position: "absolute",
-			left: 0,
-			top: 0,
-			width: "100%",
-			height: "100%",
-		},
-
-		cityNameContainer: {
-			flex: 1,
-			height: "100%",
-		},
-
-		cityName: {
-			fontFamily: "Trickster-Reg",
-			fontSize: GLOBAL.ui.bodyTextSize,
-			color: ActiveBody?.colors[0],
-		},
-
-		youAreHere: {
-			fontFamily: "Trickster-Reg-Arrow",
-			fontSize: 0.6 * GLOBAL.ui.bodyTextSize,
-			color: ActiveBody?.colors[1],
-		},
-
-		cityLat: {
-			fontFamily: "Trickster-Reg",
-			fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
-			marginTop: "auto",
-			color: GLOBAL.ui.colors[0],
-		},
-
-		cityLon: {
-			fontFamily: "Trickster-Reg",
-			fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
-		},
-
-		cityTimeContainer: {
-			justifyContent: "space-between",
-			height: "100%",
-		},
-
-		cityBodyTime: {
-			textAlign: "right",
-			fontFamily: "Hades-Short",
-			fontSize: locationTimeTextSize - GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
-		},
-
-		cityBodyDate: {
-			textAlign: "right",
-			fontFamily: "Trickster-Reg",
-			fontSize: locationDateTextSize,
-			lineHeight: locationDateTextSize,
-			color: ActiveBody?.colors[0],
-		},
-
-		cityScrollSpacer: {
-			width: "100%",
-			height: 2.2 * GLOBAL.slot.ellipseSemiMinor,
-		},
-	});
-
-
 	//* Components
 	return (
 		<View key={`render-${renderKey}`} style={styles.content}>
 			<View style={[styles.skewContainer, GLOBAL.ui.skewStyle]}>
 				<Text style={styles.title}>Saved Locations</Text>
 
-				<View style={styles.focusDarken} pointerEvents="none"></View>
+				{(isCityInputFocused) &&
+					<View style={styles.focusDarken} pointerEvents="none"></View>
+				}
 
 				<View style={styles.citySearchContainer}>
 					<Pressable
@@ -311,23 +324,25 @@ export default function CitiesScreen() {
 						</TextInput>
 					</Pressable>
 
-					<View style={styles.cityResultContainer}>
-						{cityObjResults.map((city, i) => (
-							<Pressable
-								key={`city-suggestion${i}`}
-								style={[styles.cityResult, { marginTop: (i > 0) ? 1.5 * GLOBAL.screen.borderWidth : 0 }]}
-								onPress={() => {
-									cityInputRef.current?.blur();
-									setIsCityInputFocused(false);
-									PushSavedCity(new GLOBAL.City(city.name, city.lat, city.lng));
-									setCityInputValue("");
-									setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
-								}}
-							>
-								<Text style={styles.cityResultText}>{cityNameResults[i]}</Text>
-							</Pressable>
-						))}
-					</View>
+					{(isCityInputFocused) &&
+						<View style={styles.cityResultContainer}>
+							{cityObjResults.map((city, i) => (
+								<Pressable
+									key={`city-suggestion${i}`}
+									style={[styles.cityResult, { marginTop: (i > 0) ? 1.5 * GLOBAL.screen.borderWidth : 0 }]}
+									onPress={() => {
+										cityInputRef.current?.blur();
+										setIsCityInputFocused(false);
+										PushSavedCity(new GLOBAL.City(city.name, city.lat, city.lng));
+										setCityInputValue("");
+										setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
+									}}
+								>
+									<Text style={styles.cityResultText}>{cityNameResults[i]}</Text>
+								</Pressable>
+							))}
+						</View>
+					}
 				</View>
 
 				<ScrollView
@@ -336,31 +351,66 @@ export default function CitiesScreen() {
 					contentContainerStyle={{ alignItems: "center" }}
 					showsVerticalScrollIndicator={false}
 				>
-					{SavedCities.map((loc, i) => {
-						const locationWidth =
-							(i == ActiveCityIndex)
-							? GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth)
-							: GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth) - (2 * GLOBAL.screen.borderWidth);
-						const cityBackgroundColor = (i == ActiveCityIndex) ? ActiveBody?.colors[3] : ActiveBody?.colors[4];
+					{SavedCities.map((city: GLOBAL.City, i: number) => {
+						const cityWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth);
+						const cityPressProgress = useSharedValue(0);
+						useEffect(() => {
+							cityPressProgress.value = withTiming(
+								 (i == ActiveCityIndex) ? 1 : 0,
+								{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+							);
+						}, [ActiveCityIndex]);
+					
+						const bodyAnimStyle = useAnimatedStyle(() => {
+							return {
+								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+								backgroundColor: interpolateColor(
+									cityPressProgress.value,
+									[0, 1],
+									[ActiveBody?.colors[4]!, ActiveBody?.colors[3]!]
+								),
+							};
+						});
+
+						const svgAnimProps = useAnimatedProps(() => {
+							return {
+								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+							};
+						});
+
+						const bottomBlobAnimProps = useAnimatedProps(() => {
+							return {
+								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+							};
+						});
+
+						const topBlobAnimProps = useAnimatedProps(() => {
+							return {
+								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)) - (2 * GLOBAL.ui.inputBorderWidth),
+							};
+						});
 
 						return (
-							<Pressable
+							<AnimatedPressable
 								key={`city-${i}`}
 								style={[
 									styles.city,
-									{
-										width: locationWidth,
-										marginTop: (i > 0) ? 2 * GLOBAL.ui.inputBorderWidth : 0,
-										backgroundColor: cityBackgroundColor,
-									}
+									bodyAnimStyle,
+									{ marginTop: (i > 0) ? 2 * GLOBAL.ui.inputBorderWidth : 0 },
 								]}
 								onPress={() => {
 									SetActiveCityIndex(i);
-									SetActiveTab(2);
-									router.replace("/");
+									setTimeout(() => {
+										SetActiveTab(2);
+										router.replace("/");
+									}, 300);
 								}}
 							>
-								<Svg style={styles.citySvg} viewBox={`0 0 ${locationWidth} ${locationHeight}`}>
+								<AnimatedSvg
+									style={styles.citySvg}
+									height="100%"
+									animatedProps={svgAnimProps}
+								>
 									<Defs>
 										<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
 											<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
@@ -376,63 +426,67 @@ export default function CitiesScreen() {
 
 										<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
 											<Stop offset="0%" stopColor="black" stopOpacity="0" />
-											<Stop offset="100%" stopColor="black" stopOpacity="0.4" />
+											<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
 										</LinearGradient>
 									</Defs>
 
-									<Rect
-										fill="transparent"
+									<AnimatedRect
+										fill="url(#bottom-blob)"
 										stroke="url(#stroke)"
 										strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-										x={GLOBAL.ui.inputBorderWidth}
-										y={GLOBAL.ui.inputBorderWidth}
-										width={locationWidth - (2 * GLOBAL.ui.inputBorderWidth)}
-										height={locationHeight - (2 * GLOBAL.ui.inputBorderWidth)}
-										rx={GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth}
+										x={0}
+										y={0}
+										animatedProps={bottomBlobAnimProps}
+										height={cityHeight}
+										rx={GLOBAL.screen.borderWidth}
 									/>
 
-									<Rect
-										fill={cityBackgroundColor}
-										x={GLOBAL.ui.inputBorderWidth}
-										y={GLOBAL.ui.inputBorderWidth}
-										width={locationWidth - (2 * GLOBAL.ui.inputBorderWidth)}
-										height={locationHeight - (2 * GLOBAL.ui.inputBorderWidth)}
-										rx={GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth}
-									/>
-
-									<Rect
-										fill="url(#bottom-blob)"
-										x={GLOBAL.ui.inputBorderWidth}
-										y={GLOBAL.ui.inputBorderWidth}
-										width={locationWidth - (2 * GLOBAL.ui.inputBorderWidth)}
-										height={locationHeight - (2 * GLOBAL.ui.inputBorderWidth)}
-										rx={GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth}
-									/>
-
-									<Rect
+									<AnimatedRect
 										fill="url(#top-blob)"
 										x={GLOBAL.ui.inputBorderWidth}
 										y={GLOBAL.ui.inputBorderWidth}
-										width={locationWidth - (2 * GLOBAL.ui.inputBorderWidth)}
+										animatedProps={topBlobAnimProps}
 										height={2 * (GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth)}
 										rx={GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth}
 									/>
-								</Svg>
+								</AnimatedSvg>
 
 								<View style={[styles.cityWrapper, GLOBAL.ui.btnShadowStyle]}>
 									<View style={styles.cityNameContainer}>
-										<Text style={styles.cityName} numberOfLines={1}>{loc.name}</Text>
-										{(i == 0) && <Text style={styles.youAreHere} numberOfLines={1}>¹ You are here!</Text>}
-										<Text style={styles.cityLat}>{toDMS(loc.lat, true)}</Text>
-										<Text style={styles.cityLon}>{toDMS(loc.lon, false)}</Text>
+										<Text
+											style={[
+												styles.cityName,
+												{ color: ActiveBody?.colors[0] }
+											]}
+											numberOfLines={1}
+										>{city.name}</Text>
+
+										{(i == 0) &&
+											<Text
+												style={[
+													styles.youAreHere,
+													{ color: ActiveBody?.colors[1] }
+												]}
+												numberOfLines={1}
+											>¹ You are here!</Text>
+										}
+
+										<Text style={styles.cityLat}>{toDMS(city.lat, true)}</Text>
+										<Text style={styles.cityLon}>{toDMS(city.lng, false)}</Text>
 									</View>
 
 									<View style={styles.cityTimeContainer}>
-										<Text style={styles.cityBodyTime}>{loc.getClockTime()}</Text>
-										<Text style={styles.cityBodyDate}>{loc.getDateShort()}</Text>
+										<Text style={styles.cityBodyTime}>{city.getClockTime()}</Text>
+
+										<Text
+											style={[
+												styles.cityBodyDate,
+												{ color: ActiveBody?.colors[0] }
+											]}
+										>{city.getDateShort()}</Text>
 									</View>
 								</View>
-							</Pressable>
+							</AnimatedPressable>
 						);
 					})}
 

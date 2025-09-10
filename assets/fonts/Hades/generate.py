@@ -6,7 +6,7 @@ import os
 unit_mult = 10
 font_prefs = [
 	{
-		"name": "tall",
+		"name": "TallFat",
 		"spacing": 1,
 		"glyph_height": 57.5,
 		"glyph_widths": {
@@ -33,7 +33,34 @@ font_prefs = [
 		}
 	},
 	{
-		"name": "short",
+		"name": "ShortFat",
+		"spacing": 1,
+		"glyph_height": 44.5,
+		"glyph_widths": {
+			"0": 12,
+			"1": 5.5,
+			"2": 12,
+			"3": 12,
+			"4": 12,
+			"5": 12,
+			"6": 12,
+			"7": 12,
+			"8": 12,
+			"9": 12,
+
+			"A": 12,
+			"M": 18.5,
+			"N": 18.5,
+			"O": 12,
+			"P": 12,
+			"W": 18.5,
+
+			":": 5.5,
+			"!": 5.5
+		}
+	},
+	{
+		"name": "ShortSkinny",
 		"spacing": 1.5,
 		"glyph_height": 51.5,
 		"glyph_widths": {
@@ -97,8 +124,8 @@ def generate_font(index):
 			font[left].addPosSub("KernSubtable", right, int(font_pref["spacing"] * unit_mult))
 
 	# Set font metadata
-	font.fontname = "Hades-" + font_pref["name"].capitalize()
-	font.fullname = "Hades " + font_pref["name"].capitalize()
+	font.fontname = "Hades-" + font_pref["name"]
+	font.fullname = "Hades " + font_pref["name"]
 	font.familyname = "Hades"
 
 	# Generate font
@@ -107,4 +134,5 @@ def generate_font(index):
 
 
 #* Generate time!
-generate_font(1)
+for f in range(len(font_prefs)):
+	generate_font(f)

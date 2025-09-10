@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system";
 import { Dimensions, Platform } from "react-native";
 import * as SUNCALC from "suncalc";
 import { create } from "zustand";
@@ -10,35 +11,41 @@ export const ui = {
 	get bodyTextSize() {
 		return 0.055 * slot.width;
 	},
-	skewStyle: Platform.select({
-		ios: {
-			transform: [{skewY: "-10deg"}]
-		},
-		android: {
-			transform: [
-				{perspective: 82100},
-				{rotateX: "25deg"},
-				{rotateY: "-25deg"},
-				{scale: 1.1},
-			],
-		},
-	}),
+	skewAngle: -10,
+	get skewStyle() {
+		return Platform.select({
+			ios: {
+				transform: [{skewY: `${this.skewAngle}deg`}]
+			},
+			android: {
+				transform: [
+					{perspective: 82100},
+					{rotateX: "25deg"},
+					{rotateY: "-25deg"},
+					{scale: 1.1},
+				],
+			},
+		});
+	},
 	get inputBorderWidth() {
 		return 0.005 * slot.width;
 	},
-	btnShadowStyle: {
-		shadowColor: "black",
-		shadowOffset: {width: 0, height: 2},
-		shadowRadius: 2,
-		shadowOpacity: 0.6,
+	get btnShadowStyle() {
+		return {
+			shadowColor: "black",
+			shadowOffset: {width: 0, height: this.inputBorderWidth},
+			shadowRadius: this.inputBorderWidth,
+			shadowOpacity: 0.7,
+		}
 	},
+	animDuration: 0.2,
 	fps: 60,
 }
 
 export const screen = {
+	topOffset: 0,
+	bottomOffset: 0,
 	borderWidth: 10,
-	topOffset: 48,
-	bottomOffset: 11,
 	width: Dimensions.get("window").width,
 	height: Dimensions.get("window").height,
 };
@@ -58,7 +65,7 @@ export const slot = {
 		return screen.width - 2 * screen.borderWidth;
 	},
 	get height() {
-		return screen.height - screen.topOffset - screen.bottomOffset - nav.thickness - 2 * screen.borderWidth;
+		return screen.height - screen.topOffset - screen.bottomOffset - nav.thickness;
 	},
 	get ellipseSemiMajor() {
 		return this.width / 2;
@@ -70,22 +77,22 @@ export const slot = {
 };
 
 
-//* App storage
+//* City class
 export class City {
 	name: string;
 	lat: number;
-	lon: number;
+	lng: number;
 	nextBodyTime: Date;
 
 	constructor(name: string, lat: number, lon: number) {
 		this.name = name;
 		this.lat = lat;
-		this.lon = lon;
+		this.lng = lon;
 		this.nextBodyTime = new Date(0);
 	}
 
 	solarElevationAt(date: Date) {
-		const pos = SUNCALC.getPosition(date, this.lat, this.lon);
+		const pos = SUNCALC.getPosition(date, this.lat, this.lng);
 		return (pos.altitude * 180) / Math.PI;
 	}
 
@@ -146,66 +153,127 @@ export class City {
 }
 
 
-//* Initial values
-const testSavedCities: City[] = [
-	new City("Orleans", 41.7935216, -69.9604816),
-	// new City("Chacharramendi", -37.331313, -65.65187),
-	// new City("Longyearbyen", 78.216667, 15.633333),
-	// new City("The Longest City Name You Can Think Of", -37.331313, -65.65187),
-];
+//* Zustand saving
+const saveFile = FileSystem.documentDirectory + "save.json";
 
+type saveStoreTypes = {
+	activeTab?: number,
+	setActiveTab: (index: number) => void,
 
-//* Zustrand
-interface AppState {
-	activeTab: number;
-	setActiveTab: (index: number) => void;
+	isSaveLoaded: boolean,
+	loadSave: () => void,
+	writeSave: () => void,
 
-	activeBody: CelestialBody;
-	setActiveBody: (body: CelestialBody) => void;
+	activeBodyName: string,
+	activeBody?: CelestialBody,
+	setActiveBody: (bodyName: string) => void,
 
-	savedCities: City[];
-	unshiftSavedCity: (loc: City) => void;
-	pushSavedCity: (loc: City) => void;
-	deleteSavedCity: (index: number) => void;
+	savedCities: City[],
+	unshiftSavedCity: (city: City) => void,
+	pushSavedCity: (city: City) => void,
+	deleteSavedCity: (index: number) => void,
 
-	activeCityIndex: number;
-	setActiveCityIndex: (index: number) => void;
+	activeCityIndex: number,
+	setActiveCityIndex: (index: number) => void,
 
-	notifFreqs: boolean[];
-	setNotifFreq: (index: number) => void;
+	notifFreqs: boolean[],
+	toggleNotifFreq: (index: number) => void,
 
-	notifReminders: boolean[];
-	toggleNotifReminder: (index: number) => void;
+	notifReminders: boolean[],
+	toggleNotifReminder: (index: number) => void,
+
+	isFormat24Hour: boolean,
+	setIsFormat24Hour: (bool: boolean) => void,
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	activeTab: 2,
 	setActiveTab: (index) => set({ activeTab: index }),
 
-	activeBody: AllBodies.find(b => b.name === "Pluto")!,
-	setActiveBody: (body) => set({ activeBody: body }),
+	isSaveLoaded: false,
+	loadSave: async () => {
+		// const fileInfo = await FileSystem.getInfoAsync(saveFile);
+		// if (!fileInfo.exists) {
+			get().writeSave();
+			console.log("Wrote default data to save file.");
+		// } else {
+		// 	const dataFromSaveJSON = await FileSystem.readAsStringAsync(saveFile);
+		// 	const dataFromSave = JSON.parse(dataFromSaveJSON);
+			
+		// 	// Active body
+		// 	get().setActiveBody(dataFromSave.activeBodyName);
 
-	savedCities: testSavedCities,
-	unshiftSavedCity: (loc) => set(state => ({
-		savedCities: [loc, ...state.savedCities]
-	})),
-	pushSavedCity: (loc) => set(state => ({
-		savedCities: [...state.savedCities, loc]
-	})),
-	deleteSavedCity: (index) => set(state => ({
-		savedCities: [...state.savedCities.slice(0, index - 1), ...state.savedCities.slice(index)]
-	})),
+		// 	// Saved cities
+		// 	set({ savedCities: dataFromSave.savedCities.map((city: any) => new City(city.name, city.lat, city.lng)) });
+
+		// 	// Active city index
+		// 	get().setActiveCityIndex(dataFromSave.activeCityIndex);
+
+		// 	// Notif freqs and reminders
+		// 	set({ notifFreqs: dataFromSave.notifFreqs });
+		// 	set({ notifReminders: dataFromSave.notifReminders });
+
+		// 	console.log("Loaded data from save file.");
+		// }
+
+		set({ isSaveLoaded: true });
+	},
+	writeSave: async () => {
+		const dataToSave = {...get()};
+		delete dataToSave.activeTab;
+		delete dataToSave.activeBody;
+		const dataToSaveJSON = JSON.stringify(dataToSave);
+		console.log(dataToSaveJSON);
+		await FileSystem.writeAsStringAsync(saveFile, dataToSaveJSON);
+	},
+
+	activeBodyName: "Pluto",
+	activeBody: AllBodies.find(b => b.name === "Pluto"),
+	setActiveBody: (bodyName) => {
+		set({ activeBodyName: bodyName });
+		const body = AllBodies.find(b => b.name === bodyName);
+		set({ activeBody: body });
+		// get().writeSave();
+	},
+
+	savedCities: [
+		new City("Orleans", 41.7935216, -69.9604816),
+		new City("Chacharramendi", -37.331313, -65.65187),
+		new City("The Longest City Name You Can Think Of", 78.216667, 15.633333),
+	],
+	unshiftSavedCity: (city) => {
+		set(state => ({ savedCities: [city, ...state.savedCities] }));
+		// get().writeSave();
+	},
+	pushSavedCity: (city) => {
+		set(state => ({ savedCities: [...state.savedCities, city] }));
+		// get().writeSave();
+	},
+	deleteSavedCity: (index) => {
+		set(state => ({ savedCities: [...state.savedCities.slice(0, index - 1), ...state.savedCities.slice(index)] }));
+		// get().writeSave();
+	},
 
 	activeCityIndex: 0,
-	setActiveCityIndex: (index) => set({ activeCityIndex: index }),
+	setActiveCityIndex: (index) => {
+		set({ activeCityIndex: index });
+		// get().writeSave();
+	},
 
 	notifFreqs: [true, true],
-	setNotifFreq: (index: number) => set(state => ({
-		notifFreqs: state.notifFreqs.map((v, i) => i === index ? !v : v)
-	})),
+	toggleNotifFreq: (index) => {
+		set(state => ({ notifFreqs: state.notifFreqs.map((b, i) => i === index ? !b : b) }));
+		// get().writeSave();
+	},
 
 	notifReminders: [true, false, false],
-	toggleNotifReminder: (index: number) => set(state => ({
-		notifReminders: state.notifReminders.map((v, i) => i === index ? !v : v)
-	})),
+	toggleNotifReminder: (index) => {
+		set(state => ({ notifReminders: state.notifReminders.map((b, i) => i === index ? !b : b) }));
+		// get().writeSave();
+	},
+
+	isFormat24Hour: false,
+	setIsFormat24Hour: (bool) => {
+		set({ isFormat24Hour: bool });
+	}
 }));
