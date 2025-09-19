@@ -39,9 +39,12 @@ yarn-error.*
 app-example
 
 #* Semi
+ios/
+android/
 **/*.txt
 **/*.html
 **/*.kra
 **/*.exe
+**/*.csv
 **/uncompressed
 **/bodies-originals

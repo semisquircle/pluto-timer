@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { Dimensions, Platform } from "react-native";
 import * as SUNCALC from "suncalc";
 import { create } from "zustand";
@@ -100,7 +100,7 @@ export class City {
 		const now = new Date();
 		let date = new Date(now.getTime());
 		let elevation = this.solarElevationAt(date);
-		const isBefore = elevation <= body.targetElevation;
+		const isBefore = elevation <= body.targetAltitude;
 		const step = 60 * 1000; // 1 minute
 
 		while (true) {
@@ -108,8 +108,8 @@ export class City {
 			elevation = this.solarElevationAt(date);
 
 			if (
-				(isBefore && elevation > body.targetElevation) ||
-				(!isBefore && elevation <= body.targetElevation)
+				(isBefore && elevation > body.targetAltitude) ||
+				(!isBefore && elevation <= body.targetAltitude)
 			) {
 				this.nextBodyTime = date;
 				return;
@@ -154,7 +154,8 @@ export class City {
 
 
 //* Zustand saving
-const saveFile = FileSystem.documentDirectory + "save.json";
+// const saveFile = FileSystem.documentDirectory + "save.json";
+const saveFile = new File(Paths.document, "save.json");
 
 type saveStoreTypes = {
 	activeTab?: number,
@@ -224,7 +225,8 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		delete dataToSave.activeBody;
 		const dataToSaveJSON = JSON.stringify(dataToSave);
 		console.log(dataToSaveJSON);
-		await FileSystem.writeAsStringAsync(saveFile, dataToSaveJSON);
+		if (!saveFile.exists) saveFile.create();
+		saveFile.write(dataToSaveJSON);
 	},
 
 	activeBodyName: "Pluto",

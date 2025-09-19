@@ -760,9 +760,7 @@ export default function BodiesScreen() {
 								if (boi?.canUse) {
 									SetActiveBody(boi?.name);
 									setIsBodyInterested(false);
-									SavedCities.forEach((city) => {
-										city.setNextBodyTime(ActiveBody!);
-									});
+									SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
 								}
 							}}
 							onPressOut={() => {

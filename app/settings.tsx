@@ -41,6 +41,15 @@ const timeFormatOptions = [
 ];
 
 
+//* Credits
+const credits = [
+	{ name: "Semi", job: "Programming/development" },
+	{ name: "NASA", job: "Astronomical data" },
+	{ name: "davemcw", job: "Time algorithm" },
+	{ name: "Deep-Fold", job: "Planet texture generator" },
+]
+
+
 //* Restore button
 const restoreBtnWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth);
 const restoreBtnHeight = 0.2 * GLOBAL.slot.width;
@@ -183,7 +192,7 @@ export default function SettingsScreen() {
 
 
 	//* Time format options
-	const [isTimeFormatPressed, setIsTimeFormatPressed] = useState<boolean>(false);
+	const [timeFormatPressed, setTimeFormatPressed] = useState<number | null>(null);
 	const timeFormatProgress = useSharedValue((IsFormat24Hour) ? timeFormatContainerWidth / 2 : GLOBAL.ui.inputBorderWidth);
 	useEffect(() => {
 		timeFormatProgress.value = withTiming(
@@ -432,8 +441,6 @@ export default function SettingsScreen() {
 					style={{
 						width: timeFormatContainerWidth,
 						height: timeFormatContainerHeight,
-						// backgroundColor: ActiveBody?.colors[4],
-						backgroundColor: (isTimeFormatPressed) ? GLOBAL.ui.colors[0] + "22" : "transparent",
 						borderRadius: timeFormatContainerBorderRadius,
 						overflow: "hidden",
 					}}
@@ -522,20 +529,23 @@ export default function SettingsScreen() {
 							key={`time-format-option${f}`}
 							style={{
 								position: "absolute",
+								top: GLOBAL.ui.inputBorderWidth,
 								left: (f == 0) ? GLOBAL.ui.inputBorderWidth : timeFormatContainerWidth / 2,
 								justifyContent: "center",
 								alignItems: "center",
-								width: (timeFormatContainerWidth - 2 * GLOBAL.ui.inputBorderWidth) / 2,
-								height: "100%",
+								width: (timeFormatContainerWidth - (2 * GLOBAL.ui.inputBorderWidth)) / 2,
+								height: timeFormatContainerHeight - (2 * GLOBAL.ui.inputBorderWidth),
+								backgroundColor: (timeFormatPressed == f) ? GLOBAL.ui.colors[0] + "22" : "transparent",
+								borderRadius: timeFormatContainerBorderRadius - GLOBAL.ui.inputBorderWidth,
 							}}
 							onPressIn={() => {
-								setIsTimeFormatPressed(true);
+								if (f === (IsFormat24Hour ? 0 : 1)) setTimeFormatPressed(f);
 							}}
 							onPress={() => {
 								SetIsFormat24Hour(f == 1);
 							}}
 							onPressOut={() => {
-								setIsTimeFormatPressed(false);
+								setTimeFormatPressed(null);
 							}}
 						>
 							<Text
@@ -567,10 +577,37 @@ export default function SettingsScreen() {
 					This app was brought to you in part by:
 				</Text>
 				<View style={styles.notifReminderContainer}>
-					<Text style={{ color: GLOBAL.ui.colors[0] }}>Semi</Text>
-					<Text style={{ color: GLOBAL.ui.colors[0] }}>Nasa</Text>
-					<Text style={{ color: GLOBAL.ui.colors[0] }}>DaveMcW</Text>
-					<Text style={{ color: GLOBAL.ui.colors[0] }}>Deep-Fold</Text>
+					{credits.map((credit, c) => (
+						<View
+							key={`credit${c}`}
+							style={{
+								flexDirection: "row",
+								justifyContent: "space-between",
+								alignItems: "center",
+								width: "100%"
+							}}
+						>
+							<Text style={{
+								fontFamily: "Trickster-Reg",
+								fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+								color: GLOBAL.ui.colors[0],
+							}}>{credit.name}</Text>
+
+							<View style={{
+								flex: 1,
+								marginHorizontal: GLOBAL.ui.bodyTextSize / 2,
+								borderTopWidth: GLOBAL.ui.inputBorderWidth,
+								borderColor: GLOBAL.ui.colors[0],
+								borderStyle: "dotted",
+							}}></View>
+
+							<Text style={{
+								fontFamily: "Trickster-Reg",
+								fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+								color: GLOBAL.ui.colors[0],
+							}}>{credit.job}</Text>
+						</View>
+					))}
 				</View>
 
 				<Pressable

@@ -1,3 +1,4 @@
+import * as GLOBAL from "@/ref/global";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { useFonts } from "expo-font";
 import { Image as ExpoImage } from "expo-image";
@@ -7,8 +8,6 @@ import React, { useEffect, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Path, Svg } from "react-native-svg";
-import * as GLOBAL from "../ref/global";
-import StarField from "../ref/star-field";
 
 
 //* Tabs
@@ -134,6 +133,7 @@ export default function Layout() {
 	}, []);
 
 
+	//* Set safe area insets
 	const screenInsets = useSafeAreaInsets();
 	useEffect(() => {
 		GLOBAL.screen.topOffset = screenInsets.top;
@@ -161,6 +161,14 @@ export default function Layout() {
 
 	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
 	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
+
+
+	//* Calculate body times (after save load)
+	useEffect(() => {
+		if (IsSaveLoaded) {
+			SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
+		}
+	}, [IsSaveLoaded]);
 
 
 	//* Fonts
@@ -216,7 +224,7 @@ export default function Layout() {
 	}, []);
 
 
-	//* Tabs/navigation
+	//* Tabs
 	const [tabBeingPressed, setTabBeingPressed] = useState<number | null>(null);
 
 
@@ -314,7 +322,7 @@ export default function Layout() {
 			>
 				<View style={styles.slotBG} pointerEvents="none"></View>
 
-				<StarField />
+				{/* <StarField /> */}
 
 				<Slot />
 			</MaskedView>
