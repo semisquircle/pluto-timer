@@ -4,13 +4,58 @@ import { AllBodies, CelestialBody, SolarSystem } from "@/ref/solar-system";
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { withPause } from "react-native-redash";
 import { Circle, ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
+//* Reanimated
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 
 
+//* BOI popup
+const boiPopupOffset = GLOBAL.screen.horizOffset;
+const boiPopupWidth = GLOBAL.slot.width - 2 * boiPopupOffset;
+const boiPopupHeight = 0.6 * GLOBAL.slot.width;
+const boiPopupBorderRadius = GLOBAL.slot.borderRadius;
+const boiPopupPadding = 3 * GLOBAL.ui.inputBorderWidth;
+
+const boiPopupUseBtnBorderRadius = GLOBAL.screen.horizOffset;
+const boiPopupUseBtnWidth = boiPopupWidth - (2 * boiPopupPadding);
+const boiPopupUseBtnHeight = boiPopupUseBtnBorderRadius + (GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding);
+
+const boiPopupCloseBtnDimension = (2 * boiPopupBorderRadius) - (5 * GLOBAL.ui.inputBorderWidth) - (2 * boiPopupPadding);
+
+
+//* Sol
+const solDiameter = GLOBAL.slot.width;
+const solFrameDimension = 1.3 * solDiameter;
+const solFrameWidth = 20;
+const solFrameHeight = 20;
+const totalSolFrames = solFrameWidth * solFrameHeight;
+const solAnimFPS = 30;
+const solSeed = 2855613398;
+const solPalette = ["#ffe066", "#ffe066", "#feb631", "#e3681e", "#992d0b", "#000000", "#000000"];
+
+
+//* Systems
+const centerBodyDiameter = 0.3 * GLOBAL.slot.width;
+
+const systemNameTextOffset = GLOBAL.screen.horizOffset;
+const systemNameTextSize = 0.8 * GLOBAL.ui.bodyTextSize;
+const systemNameTextDescent = 0.15 * systemNameTextSize;
+
+const systemSpacing = 0.2 * GLOBAL.slot.width;
+const moonDiameter = 0.16 * GLOBAL.slot.width;
+const moonOffset = (GLOBAL.slot.width - centerBodyDiameter - (2 * moonDiameter)) / 4;
+const systemDiameter = centerBodyDiameter + (2 * moonOffset) + (2 * moonDiameter);
+
+const notToScaleTextOffset = GLOBAL.screen.horizOffset;
+const notToScaleTextSize = GLOBAL.ui.bodyTextSize;
+
+
+//* Body button
 interface bodyBtnInterface {
 	body: any,
 	diameter: number,
@@ -26,18 +71,12 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 	useEffect(() => {
 		bodyInterestProgress.value = withTiming(
 			(isInterested) ? 1 : 0,
-			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.inOut(Easing.cubic) }
 		);
 	}, [isInterested]);
 
-	const bodyAnimStyle = useAnimatedStyle(() => {
-		return {
-			backgroundColor: interpolateColor(
-				bodyInterestProgress.value,
-				[0, 1],
-				["transparent", GLOBAL.ui.colors[0]]
-			),
-		};
+	const bodyAnimProps = useAnimatedProps(() => {
+		return { strokeWidth: bodyInterestProgress.value * (2 * GLOBAL.ui.inputBorderWidth) }
 	});
 
 	return (
@@ -49,42 +88,45 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 			height: diameter + (2 * GLOBAL.ui.inputBorderWidth),
 		}}>
 			<AnimatedPressable
-				style={[
-					{
-						position: "absolute",
-						justifyContent: "center",
-						alignItems: "center",
-						width: diameter + (2 * GLOBAL.ui.inputBorderWidth),
-						height: diameter + (2 * GLOBAL.ui.inputBorderWidth),
-						borderRadius: "50%",
-					},
-					bodyAnimStyle
-				]}
+				style={{
+					position: "absolute",
+					justifyContent: "center",
+					alignItems: "center",
+					width: (body.scale.x * diameter) + (2 * GLOBAL.ui.inputBorderWidth),
+					height: (body.scale.y * diameter) + (2 * GLOBAL.ui.inputBorderWidth),
+				}}
 				onPress={onPress}
 			>
+				<Svg
+					style={GLOBAL.ui.btnShadowStyle()}
+					width="100%"
+					height="100%"
+					viewBox={`0 0
+						${(body.scale.x * diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
+						${(body.scale.y * diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
+					`}
+				>
+					<AnimatedEllipse
+						fill={body.palette[2]}
+						stroke={GLOBAL.ui.palette[0]}
+						animatedProps={bodyAnimProps}
+						cx={(body.scale.x * diameter) / 2 + GLOBAL.ui.inputBorderWidth}
+						cy={(body.scale.y * diameter) / 2 + GLOBAL.ui.inputBorderWidth}
+						rx={(body.scale.x * diameter) / 2}
+						ry={(body.scale.y * diameter) / 2}
+					/>
+				</Svg>
 			</AnimatedPressable>
-
-			{(!isImgDisplayed) &&
-				<View
-					style={{
-						position: "absolute",
-						width: diameter,
-						height: diameter,
-						backgroundColor: body.colors[2],
-						borderRadius: "50%",
-					}}
-					pointerEvents="none"
-				></View>
-			}
 
 			<ExpoImage
 				style={{
 					position: "absolute",
-					width: newDiameter,
-					height: newDiameter,
-					marginBottom: 0.5,
+					width: body.scale.x * newDiameter,
+					height: body.scale.y * newDiameter,
+					marginBottom: 0.4,
 				}}
 				source={body.thumbnail}
+				contentFit="fill"
 				onDisplay={() => {
 					setIsImgDisplayed(true);
 					onDisplay();
@@ -96,112 +138,152 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnIn
 }
 
 
+//* Stylesheet
+const styles = StyleSheet.create({
+	content: {
+		alignItems: "center",
+		width: GLOBAL.slot.width,
+		height: GLOBAL.slot.height,
+		overflow: "hidden",
+	},
+
+	bodyScrollContainer: {
+		width: "100%",
+		height: "100%",
+	},
+
+	solSpacer: {
+		justifyContent: "center",
+		alignItems: "center",
+		width: solDiameter,
+		height: solDiameter / 2,
+	},
+
+	solContainer: {
+		position: "absolute",
+		justifyContent: "center",
+		alignItems: "center",
+		width: solFrameDimension,
+		height: solFrameDimension,
+		marginTop: -solFrameDimension / 2,
+		overflow: "hidden",
+	},
+
+	solSpriteSheet: {
+		position: "absolute",
+		width: solFrameWidth * solFrameDimension,
+		height: solFrameHeight * solFrameDimension,
+	},
+
+	solPlaceholder: {
+		position: "absolute",
+		width: solDiameter,
+		height: solDiameter,
+		backgroundColor: "#FFB732",
+		borderRadius: "50%",
+	},
+
+	solPlaceholderImg: {
+		position: "absolute",
+		width: solFrameDimension,
+		height: solFrameDimension,
+	},
+
+	solSpriteSheetImg: {
+		position: "absolute",
+		width: "100%",
+		height: "100%",
+	},
+
+	system: {
+		justifyContent: "center",
+		alignItems: "center",
+		width: systemDiameter,
+		height: systemDiameter,
+		overflow: "visible",
+	},
+
+	bodyScrollSpacer: {
+		width: "100%",
+		height: boiPopupHeight + (2 * boiPopupOffset) + GLOBAL.ui.inputBorderWidth,
+	},
+
+	boiPopup: {
+		position: "absolute",
+		justifyContent: "center",
+		alignItems: "center",
+		width: boiPopupWidth,
+		height: boiPopupHeight,
+	},
+
+	boiPopupSvg: {
+		position: "absolute",
+	},
+
+	boiPopupCloseBtnContainer: {
+		position: "absolute",
+		justifyContent: "center",
+		alignItems: "center",
+		top: boiPopupPadding,
+		right: boiPopupPadding,
+		width: boiPopupCloseBtnDimension,
+		height: boiPopupCloseBtnDimension,
+		borderRadius: "50%",
+	},
+
+	boiPopupCloseBtnSvg: {
+		position: "absolute",
+	},
+
+	boiPopupUseBtnContainer: {
+		position: "absolute",
+		bottom: boiPopupPadding,
+		justifyContent: "center",
+		alignItems: "center",
+		width: boiPopupUseBtnWidth,
+		height: boiPopupUseBtnHeight,
+	},
+
+	boiPopupUseBtnSvg: {
+		position: "absolute",
+		width: boiPopupUseBtnWidth,
+		height: boiPopupUseBtnHeight,
+	},
+
+	boiPopupUseBtnTextContainer: {
+		position: "absolute",
+	},
+
+	boiPopupUseBtnText: {
+		fontFamily: "Trickster-Reg",
+		fontSize: GLOBAL.ui.bodyTextSize,
+		marginBottom: 0.5 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.palette[0],
+	},
+});
+
+
 export default function BodiesScreen() {
 	//* App storage
-	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
-
+	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 
-	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
-	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
-	const ActiveCity = SavedCities[ActiveCityIndex];
-
-	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
-	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
-
-	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
-	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
-
-	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
-	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
+	//* Colors
+	const btnBgColor = ActiveBody?.palette[2];
+	const btnPressedBgColor = ActiveBody?.palette[3];
 
 
-	//* Sol animation
-	const solDiameter = 2 * GLOBAL.slot.width;
-	const solFrameWidth = 20;
-	const solFrameHeight = 20;
-	const totalSolFrames = solFrameWidth * solFrameHeight;
-	const solSeed = 2855613398;
-
-	const [isSolPlaceholderImgDisplayed, setIsSolPlaceholderImgDisplayed] = useState<boolean>(false);
-	const [isSolSpriteSheetDisplayed, setIsSolSpriteSheetDisplayed] = useState<boolean>(false);
-	const solFrameSV = useSharedValue(0);
-	const solAnimDuration = 20; // Seconds
-	useEffect(() => {
-		if (isSolSpriteSheetDisplayed) {
-			solFrameSV.value = withRepeat(
-				withTiming(
-					totalSolFrames - 1,
-					{ duration: 1000 * solAnimDuration, easing: Easing.linear })
-				, -1, false
-			);
-		}
-	}, [isSolSpriteSheetDisplayed]);
-
-	const solAnimStyle = useAnimatedStyle(() => {
-		const solFrameInt = Math.round(solFrameSV.value);
-		return {
-			left: -(solFrameInt % solFrameWidth) * solDiameter,
-			top: -Math.floor(solFrameInt / solFrameWidth) * solDiameter,
-		};
-	});
-
-
-	//* Systems
-	const systemNameTextOffset = GLOBAL.screen.borderWidth;
-	const systemNameTextSize = 0.8 * GLOBAL.ui.bodyTextSize;
-
-	const centerBodyDiameter = 0.3 * GLOBAL.slot.width;
-	const satelliteOffset = (2 * systemNameTextOffset) + systemNameTextSize;
-	const satelliteDiameter = 0.18 * GLOBAL.slot.width;
-	const systemDiameter = centerBodyDiameter + (2 * satelliteOffset) + (2 * satelliteDiameter);
-	const systemSpacing = 0.2 * GLOBAL.slot.width;
-
-	const systemNameTextDiameter = centerBodyDiameter + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
-
-	const [numBodyImgsLoaded, setNumBodyImgsLoaded] = useState<number>(0);
-	const [areAllBodyImgsLoaded, setAreAllBodyImgsLoaded] = useState<boolean>(false);
-	useEffect(() => {
-		if (numBodyImgsLoaded == AllBodies.length) setAreAllBodyImgsLoaded(true);
-	}, [numBodyImgsLoaded]);
-
-	const notToScaleTextOffset = GLOBAL.screen.borderWidth;
-	const notToScaleTextSize = GLOBAL.ui.bodyTextSize;
-
-
-	//* Orbit animation
-	const orbitRot = useSharedValue(0);
-	const orbitDuration = 15; // Seconds
-	useEffect(() => {
-		orbitRot.value = withRepeat(
-			withTiming(
-				360,
-				{ duration: 1000 * orbitDuration, easing: Easing.linear }
-			), -1, false
-		);
-	}, []);
-
-
-	//* Body of interest popup
-	const boiPopupOffset = GLOBAL.screen.borderWidth;
-	const boiPopupWidth = GLOBAL.slot.width - 2 * boiPopupOffset;
-	const boiPopupHeight = 0.6 * GLOBAL.slot.width;
-	const boiPopupBorderRadius = GLOBAL.slot.borderRadius;
-	const boiPopupPadding = 3 * GLOBAL.ui.inputBorderWidth;
-
+	//* BOI popup animation
 	const [boi, setBoi] = useState<CelestialBody | null>(null);
 	const [isBodyInterested, setIsBodyInterested] = useState<boolean>(false);
+	const isAnimPaused = useSharedValue(false);
 	const boiPopupAnimSV = useSharedValue(-boiPopupHeight);
 	useEffect(() => {
 		boiPopupAnimSV.value = withTiming(
 			(isBodyInterested) ? boiPopupOffset : -boiPopupHeight,
-			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.inOut(Easing.cubic) }
 		);
 	}, [isBodyInterested]);
 
@@ -210,143 +292,58 @@ export default function BodiesScreen() {
 	});
 
 	const [isBoiPopupCloseBtnPressed, setIsBoiPopupCloseBtnPressed] = useState<boolean>(false);
-	const boiPopupCloseBtnDimension = (2 * boiPopupBorderRadius) - (5 * GLOBAL.ui.inputBorderWidth) - (2 * boiPopupPadding);
-
 	const [isBoiPopupUseBtnPressed, setIsBoiPopupUseBtnPressed] = useState<boolean>(false);
-	const boiPopupUseBtnBorderRadius = GLOBAL.screen.borderWidth;
-	const boiPopupUseBtnWidth = boiPopupWidth - (2 * boiPopupPadding);
-	const boiPopupUseBtnHeight = boiPopupUseBtnBorderRadius + (GLOBAL.slot.ellipseSemiMinor - boiPopupOffset - boiPopupPadding);
 
 
-	//* Stylesheet
-	const styles = StyleSheet.create({
-		content: {
-			alignItems: "center",
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-		},
+	//* Sol animation
+	const [isSolPlaceholderImgDisplayed, setIsSolPlaceholderImgDisplayed] = useState<boolean>(false);
+	const [isSolSpriteSheetDisplayed, setIsSolSpriteSheetDisplayed] = useState<boolean>(false);
+	const solFrameSV = useSharedValue(0);
+	useEffect(() => {
+		if (isSolSpriteSheetDisplayed) {
+			solFrameSV.value = withPause(
+				withRepeat(withTiming(
+					totalSolFrames - 1,
+					{ duration: 1000 / solAnimFPS * totalSolFrames, easing: Easing.linear }),
+					-1,
+					false
+				),
+				isAnimPaused
+			);
+		}
+	}, [isSolSpriteSheetDisplayed, isAnimPaused]);
 
-		bodyScrollContainer: {
-			width: "100%",
-			height: "100%",
-		},
-
-		solSpriteSheetContainerWrapper: {
-			justifyContent: "center",
-			alignItems: "center",
-			width: solDiameter,
-			height: solDiameter / 2,
-			marginTop: -solDiameter / 4,
-		},
-
-		solSpriteSheetContainer: {
-			position: "absolute",
-			justifyContent: "center",
-			alignItems: "center",
-			width: solDiameter,
-			height: solDiameter,
-			overflow: "hidden",
-		},
-
-		solSpriteSheetWrapper: {
-			position: "absolute",
-			width: solFrameWidth * solDiameter,
-			height: solFrameHeight * solDiameter,
-		},
-
-		solPlaceholder: {
-			position: "absolute",
-			width: solDiameter / 2,
-			height: solDiameter / 2,
-			backgroundColor: "#FFB732",
-			borderRadius: "50%",
-		},
-
-		solPlaceholderImg: {
-			position: "absolute",
-			width: solDiameter,
-			height: solDiameter,
-		},
-
-		solSpriteSheetImg: {
-			position: "absolute",
-			width: "100%",
-			height: "100%",
-		},
-
-		system: {
-			justifyContent: "center",
-			alignItems: "center",
-			width: systemDiameter,
-			height: systemDiameter,
-			overflow: "visible",
-		},
-
-		bodyScrollSpacer: {
-			width: "100%",
-			height: boiPopupHeight + (2 * boiPopupOffset) + GLOBAL.ui.inputBorderWidth,
-		},
-
-		boiPopup: {
-			position: "absolute",
-			alignItems: "center",
-			width: boiPopupWidth,
-			height: boiPopupHeight,
-		},
-
-		boiPopupSvg: {
-			position: "absolute",
-		},
-
-		boiPopupName: {
-			position: "absolute",
-			fontFamily: "Trickster-Reg",
-			fontSize: GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[1],
-		},
-
-		boiPopupCloseBtnContainer: {
-			position: "absolute",
-			justifyContent: "center",
-			alignItems: "center",
-			top: boiPopupPadding,
-			right: boiPopupPadding,
-			width: boiPopupCloseBtnDimension,
-			height: boiPopupCloseBtnDimension,
-			backgroundColor: ActiveBody?.colors[3],
-			borderRadius: "50%",
-		},
-
-		boiPopupCloseBtnSvg: {
-			position: "absolute",
-		},
-
-		boiPopupUseBtnContainer: {
-			position: "absolute",
-			bottom: boiPopupPadding,
-			justifyContent: "center",
-			alignItems: "center",
-			width: boiPopupUseBtnWidth,
-			height: boiPopupUseBtnHeight,
-		},
-
-		boiPopupUseBtnSvg: {
-			position: "absolute",
-			width: boiPopupUseBtnWidth,
-			height: boiPopupUseBtnHeight,
-		},
-
-		boiPopupUseBtnTextContainer: {
-			position: "absolute",
-		},
-
-		boiPopupUseBtnText: {
-			fontFamily: "Trickster-Reg",
-			fontSize: GLOBAL.ui.bodyTextSize,
-			marginBottom: 0.5 * GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
-		},
+	const solAnimStyle = useAnimatedStyle(() => {
+		const solFrameInt = Math.round(solFrameSV.value);
+		return {
+			left: -(solFrameInt % solFrameWidth) * solFrameDimension,
+			top: -Math.floor(solFrameInt / solFrameWidth) * solFrameDimension,
+		};
 	});
+
+
+	//* Systems
+	const [numBodyImgsLoaded, setNumBodyImgsLoaded] = useState<number>(0);
+	const [areAllBodyImgsLoaded, setAreAllBodyImgsLoaded] = useState<boolean>(false);
+	useEffect(() => {
+		if (numBodyImgsLoaded == AllBodies.length) setAreAllBodyImgsLoaded(true);
+	}, [numBodyImgsLoaded]);
+
+
+	//* Orbit animation
+	const orbitRot = useSharedValue(0);
+	const orbitDuration = 15; // Seconds
+	useEffect(() => {
+		orbitRot.value = withPause(
+			withRepeat(withTiming(
+				360,
+				{ duration: 1000 * orbitDuration, easing: Easing.linear }),
+				-1,
+				false
+			),
+			isAnimPaused
+		);
+	}, [isAnimPaused]);
 
 
 	//* Components
@@ -357,40 +354,42 @@ export default function BodiesScreen() {
 				contentContainerStyle={{ alignItems: "center" }}
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={styles.solSpriteSheetContainerWrapper}>
-					<View style={styles.solSpriteSheetContainer}>
-						{(!isSolPlaceholderImgDisplayed) &&
-							<View style={styles.solPlaceholder}></View>
-						}
+				<View style={styles.solSpacer}></View>
+				<View style={styles.solContainer}>
+					{(!isSolPlaceholderImgDisplayed) &&
+						<View style={styles.solPlaceholder}></View>
+					}
 
-						{(!isSolSpriteSheetDisplayed) &&
+					{(!isSolSpriteSheetDisplayed) &&
+						<ExpoImage
+							style={styles.solPlaceholderImg}
+							source={require("../assets/images/bodies/thumbnails/Sol.png")}
+							contentFit="fill"
+							onDisplay={() => {
+								setIsSolPlaceholderImgDisplayed(true);
+							}}
+						/>
+					}
+
+					{(areAllBodyImgsLoaded) &&
+						<Animated.View style={[styles.solSpriteSheet, solAnimStyle]}>
 							<ExpoImage
-								style={styles.solPlaceholderImg}
-								source={require("../assets/images/bodies/thumbnails/Sol.png")}
+								style={styles.solSpriteSheetImg}
+								source={require("../assets/images/bodies/sprite-sheets/Sol.png")}
 								onDisplay={() => {
-									setIsSolPlaceholderImgDisplayed(true);
+									setIsSolSpriteSheetDisplayed(true);
 								}}
 							/>
-						}
-
-						{(areAllBodyImgsLoaded) &&
-							<Animated.View style={[styles.solSpriteSheetWrapper, solAnimStyle]}>
-								<ExpoImage
-									style={styles.solSpriteSheetImg}
-									source={require("../assets/images/bodies/sprite-sheets/Sol.png")}
-									onDisplay={() => {
-										setIsSolSpriteSheetDisplayed(true);
-									}}
-								/>
-							</Animated.View>
-						}
-					</View>
+						</Animated.View>
+					}
 				</View>
 
 				{SolarSystem.map((system, systemIndex) => {
-					const numSatellites = system.satellites.length;
+					const numSatellites = system.moons.length;
 					const systemHeight = (numSatellites == 0) ? centerBodyDiameter : systemDiameter;
 					const systemMargin = (systemIndex == 0) ? systemSpacing + systemNameTextOffset + systemNameTextSize : systemSpacing;
+					const systemNameTextMajorAxis = (system.parent.scale.x * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
+					const systemNameTextMinorAxis = (system.parent.scale.y * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
 
 					return (
 						<View
@@ -402,30 +401,31 @@ export default function BodiesScreen() {
 						>
 							<Svg
 								style={{ position: "absolute" }}
-								width={systemNameTextDiameter}
-								height={systemNameTextDiameter}
-								viewBox={`0 0 ${systemNameTextDiameter} ${systemNameTextDiameter}`}
+								width={systemNameTextMajorAxis}
+								height={systemNameTextMinorAxis}
+								viewBox={`0 0 ${systemNameTextMajorAxis} ${systemNameTextMinorAxis}`}
 							>
 								<Defs>
-									<Circle
+									<Ellipse
 										id="system-name-path"
-										r={(centerBodyDiameter / 2) + systemNameTextOffset}
-										cx={systemNameTextDiameter / 2}
-										cy={systemNameTextDiameter / 2}
+										rx={((system.parent.scale.x * centerBodyDiameter) / 2) + systemNameTextOffset}
+										ry={((system.parent.scale.y * centerBodyDiameter) / 2) + systemNameTextOffset}
+										cx={systemNameTextMajorAxis / 2}
+										cy={systemNameTextMinorAxis / 2}
 									/>
 
 									<Path
 										id="system-system-path"
 										d={`
-											M ${0.3 * systemNameTextSize},${systemNameTextDiameter / 2}
-											A ${(systemNameTextDiameter / 2) - (0.3 * systemNameTextSize)} ${(systemNameTextDiameter / 2) - (0.3 * systemNameTextSize)}
-												0 0 0 ${systemNameTextDiameter - (0.3 * systemNameTextSize)} ${systemNameTextDiameter / 2}
+											M ${systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+											A ${(systemNameTextMajorAxis / 2) - systemNameTextDescent} ${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+												0 0 0 ${systemNameTextMajorAxis - systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
 										`}
 									/>
 								</Defs>
 
 								<SvgText
-									fill={GLOBAL.ui.colors[0]}
+									fill={GLOBAL.ui.palette[0]}
 									fontFamily="Trickster-Reg"
 									fontSize={systemNameTextSize}
 									letterSpacing="0"
@@ -438,13 +438,13 @@ export default function BodiesScreen() {
 
 								{(numSatellites > 0) &&
 									<SvgText
-										fill={GLOBAL.ui.colors[0]}
+										fill={GLOBAL.ui.palette[0]}
 										fontFamily="Trickster-Reg"
 										fontSize={systemNameTextSize}
 										letterSpacing="1"
 										textAnchor="middle"
 									>
-										<TextPath href="#system-system-path" startOffset="56%">
+										<TextPath href="#system-system-path" startOffset="54%">
 											<TSpan>System</TSpan>
 										</TextPath>
 									</SvgText>
@@ -452,48 +452,50 @@ export default function BodiesScreen() {
 							</Svg>
 
 							<BodyBtn
-								body={system.center}
+								body={system.parent}
 								diameter={centerBodyDiameter}
-								isInterested={boi?.name == system.center.name && isBodyInterested}
+								isInterested={boi?.name == system.parent.name && isBodyInterested}
 								onPress={() => {
-									setBoi(system.center);
+									setBoi(system.parent);
 									setIsBodyInterested(true);
+									isAnimPaused.value = true;
 								}}
 								onDisplay={() => {
 									setNumBodyImgsLoaded(prev => prev + 1);
 								}}
 							/>
 
-							{system.satellites.map((satellite, satelliteIndex) => {
-								const theta = (satelliteIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);
-								const satelliteAnimStyle = useAnimatedStyle(() => {
-									const angle = (orbitRot.value * Math.PI) / 180 + theta;
-									const x = (systemDiameter - satelliteDiameter) * Math.cos(angle) / 2;
-									const y = (systemDiameter - satelliteDiameter) * Math.sin(angle) / 2;
+							{system.moons.map((moon, moonIndex) => {
+								const theta = (moonIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);
+								const moonAnimStyle = useAnimatedStyle(() => {
+									const angle = (orbitRot.value * (Math.PI / 180)) + theta;
+									const x = (systemDiameter - moonDiameter) * Math.cos(angle) / 2;
+									const y = (systemDiameter - moonDiameter) * Math.sin(angle) / 2;
 									return { transform: [{ translateX: x }, { translateY: y }] };
 								});
 
 								return (
 									<Animated.View
-										key={`satellite-${satelliteIndex}`}
+										key={`moon-${moonIndex}`}
 										style={[
 											{
 												position: "absolute",
 												justifyContent: "center",
 												alignItems: "center",
-												width: satelliteDiameter + (2 * GLOBAL.ui.inputBorderWidth),
-												height: satelliteDiameter + (2 * GLOBAL.ui.inputBorderWidth),
+												width: (moon.scale.x * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
+												height: (moon.scale.y * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
 											},
-											satelliteAnimStyle
+											moonAnimStyle
 										]}
 									>
 										<BodyBtn
-											body={satellite}
-											diameter={satelliteDiameter}
-											isInterested={boi?.name == satellite.name && isBodyInterested}
+											body={moon}
+											diameter={moonDiameter}
+											isInterested={boi?.name == moon.name && isBodyInterested}
 											onPress={() => {
-												setBoi(satellite);
+												setBoi(moon);
 												setIsBodyInterested(true);
+												isAnimPaused.value = true;
 											}}
 											onDisplay={() => {
 												setNumBodyImgsLoaded(prev => prev + 1);
@@ -528,7 +530,7 @@ export default function BodiesScreen() {
 						</Defs>
 
 						<SvgText
-							fill={GLOBAL.ui.colors[0]}
+							fill={ActiveBody?.palette[0]}
 							fontFamily="Trickster-Reg"
 							fontSize={notToScaleTextSize}
 							letterSpacing="1"
@@ -545,7 +547,7 @@ export default function BodiesScreen() {
 			<SlotTopShadow />
 			<SlotBottomShadow />
 
-			<Animated.View style={[styles.boiPopup, boiPopupAnimStyle]}>
+			<Animated.View style={[styles.boiPopup, GLOBAL.ui.btnShadowStyle("up"), boiPopupAnimStyle]}>
 				<Svg
 					style={styles.boiPopupSvg}
 					width="100%"
@@ -553,7 +555,7 @@ export default function BodiesScreen() {
 					viewBox={`0 0 ${boiPopupWidth} ${boiPopupHeight}`}
 				>
 					<Path
-						fill={GLOBAL.ui.colors[0]}
+						fill={GLOBAL.ui.palette[0]}
 						d={`
 							M 0,${boiPopupBorderRadius}
 							v ${boiPopupHeight - boiPopupBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset}
@@ -568,18 +570,18 @@ export default function BodiesScreen() {
 					/>
 				</Svg>
 
-				<Text style={styles.boiPopupName}>{boi?.name}</Text>
-
 				<Pressable
 					style={[
 						styles.boiPopupCloseBtnContainer,
-						(!isBoiPopupCloseBtnPressed) && GLOBAL.ui.btnShadowStyle,
+						{ backgroundColor: (isBoiPopupCloseBtnPressed) ? btnPressedBgColor : btnBgColor },
+						(!isBoiPopupCloseBtnPressed) && GLOBAL.ui.btnShadowStyle(),
 					]}
 					onPressIn={() => {
 						setIsBoiPopupCloseBtnPressed(true);
 					}}
 					onPress={() => {
 						setIsBodyInterested(false);
+						isAnimPaused.value = false;
 					}}
 					onPressOut={() => {
 						setIsBoiPopupCloseBtnPressed(false);
@@ -637,12 +639,12 @@ export default function BodiesScreen() {
 					</Svg>
 
 					<Svg
-						style={[styles.boiPopupCloseBtnSvg, GLOBAL.ui.btnShadowStyle]}
+						style={[styles.boiPopupCloseBtnSvg, GLOBAL.ui.btnShadowStyle()]}
 						viewBox="0 0 100 100"
 					>
 						<Path
-							fill={GLOBAL.ui.colors[0]}
-							stroke={GLOBAL.ui.colors[0]}
+							fill={GLOBAL.ui.palette[0]}
+							stroke={GLOBAL.ui.palette[0]}
 							strokeWidth={3}
 							d="M 33.287299,30 30,33.287299 C 36.366047,38.606816 42.479657,44.179517 48.346514,49.999245 42.479574,55.819068 36.366145,61.393102 30,66.7127 L 33.287299,70 C 38.606901,63.633854 44.179419,57.518915 49.999245,51.651973 55.819167,57.518997 61.39302,63.633756 66.7127,70 L 70,66.7127 C 63.633757,61.39302 57.518997,55.819167 51.651973,49.999245 57.518915,44.179419 63.633853,38.606899 70,33.287299 L 66.7127,30 C 61.393101,36.366145 55.819068,42.479574 49.999245,48.346514 44.179517,42.479657 38.606816,36.366047 33.287299,30 Z"
 						/>
@@ -653,7 +655,7 @@ export default function BodiesScreen() {
 					<Svg
 						style={[
 							styles.boiPopupUseBtnSvg,
-							(!isBoiPopupUseBtnPressed) && GLOBAL.ui.btnShadowStyle,
+							(!isBoiPopupUseBtnPressed) && GLOBAL.ui.btnShadowStyle(),
 						]}
 						width="100%"
 						height="100%"
@@ -697,7 +699,11 @@ export default function BodiesScreen() {
 
 
 						<Path
-							fill={(boi?.canUse) ? ActiveBody?.colors[3] : "#777"}
+							fill={
+								(boi?.canUse)
+								? (isBoiPopupUseBtnPressed) ? btnPressedBgColor : btnBgColor
+								: "#777"
+							}
 							d={`
 								M 0,${boiPopupUseBtnBorderRadius}
 								v ${boiPopupUseBtnHeight - boiPopupUseBtnBorderRadius - GLOBAL.slot.ellipseSemiMinor + boiPopupOffset + boiPopupPadding}
@@ -752,31 +758,69 @@ export default function BodiesScreen() {
 								z
 							`}
 							onPressIn={() => {
-								if (boi?.canUse) {
-									setIsBoiPopupUseBtnPressed(true);
-								}
+								if (boi?.canUse) setIsBoiPopupUseBtnPressed(true);
 							}}
 							onPress={() => {
 								if (boi?.canUse) {
 									SetActiveBody(boi?.name);
 									setIsBodyInterested(false);
-									SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
+									isAnimPaused.value = false;
+									// SavedCities.map(city => city.setNextBodyTime(boi));
+									WriteNewSaveToFile();
 								}
 							}}
 							onPressOut={() => {
-								if (boi?.canUse) {
-									setIsBoiPopupUseBtnPressed(false);
-								}
+								if (boi?.canUse) setIsBoiPopupUseBtnPressed(false);
 							}}
 						/>
 					</Svg>
 
 					<View style={styles.boiPopupUseBtnTextContainer} pointerEvents="none">
-						<Text style={[styles.boiPopupUseBtnText, GLOBAL.ui.btnShadowStyle]}>
+						<Text style={[styles.boiPopupUseBtnText, GLOBAL.ui.btnShadowStyle()]}>
 							{(boi?.canUse) ? `Use ${boi?.name} Time` : `${boi?.name} Time Unavailable`}
 						</Text>
 					</View>
 				</View>
+
+				<View style={{
+					position: "absolute",
+					top: 2 * boiPopupPadding,
+					flexDirection: "row",
+					justifyContent: "center",
+					alignItems: "center",
+					width: "100%",
+				}}>
+					<Svg
+						width={2 * GLOBAL.ui.bodyTextSize}
+						height={2 * GLOBAL.ui.bodyTextSize}
+						viewBox="0 0 100 100"
+					>
+						<Path
+							fill={GLOBAL.ui.palette[1]}
+							stroke={GLOBAL.ui.palette[1]}
+							strokeWidth={2}
+							d={boi?.icon}
+						/>
+					</Svg>
+
+					<Text style={{
+						fontFamily: "Trickster-Reg",
+						fontSize: 1.5 * GLOBAL.ui.bodyTextSize,
+						marginLeft: GLOBAL.screen.horizOffset / 2,
+						marginBottom: 0.1 * GLOBAL.ui.bodyTextSize,
+						color: GLOBAL.ui.palette[1],
+					}}>{boi?.name}</Text>
+				</View>
+
+				<Text style={{
+					position: "absolute",
+					textAlign: "center",
+					width: "80%",
+					fontFamily: "Trickster-Reg",
+					fontSize: 0.6 * GLOBAL.ui.bodyTextSize,
+					marginBottom: boiPopupUseBtnHeight / 2,
+					color: GLOBAL.ui.palette[1],
+				}}>{boi?.desc}</Text>
 			</Animated.View>
 		</View>
 	);

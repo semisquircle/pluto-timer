@@ -3,7 +3,9 @@ import { Path, Svg } from "react-native-svg";
 import * as GLOBAL from "../ref/global";
 
 
-const shadowWallOffset = 50;
+const shadowWallOffset = 300;
+const shadowExtension = GLOBAL.slot.borderRadius + GLOBAL.slot.shadowRadius;
+
 const styles = StyleSheet.create({
 	slotShadowContainer: {
 		position: "absolute",
@@ -12,17 +14,18 @@ const styles = StyleSheet.create({
 	},
 
 	slotShadowSvg: {
-		shadowColor: GLOBAL.ui.colors[1],
-		shadowRadius: 35,
+		shadowColor: GLOBAL.ui.palette[1],
+		shadowRadius: GLOBAL.slot.shadowRadius,
 		shadowOpacity: 1,
 		shadowOffset: { width: 0, height: 0 },
 	},
 });
 
 
-export function SlotTopShadow() {
+interface SlotTopShadowInterface { style?: any }
+export function SlotTopShadow({ style }: SlotTopShadowInterface) {
 	return (
-		<View style={styles.slotShadowContainer} pointerEvents="none">
+		<View style={[styles.slotShadowContainer, style]} pointerEvents="none">
 			{Array.from({ length: 4 }).map((_, i) => (
 				<Svg
 					key={`shadow-top-${i}`}
@@ -36,17 +39,17 @@ export function SlotTopShadow() {
 					viewBox={`0 0 ${GLOBAL.slot.width + 2 * shadowWallOffset} ${GLOBAL.slot.width + 2 * shadowWallOffset}`}
 				>
 					<Path
-						fill={GLOBAL.ui.colors[1]}
+						fill={GLOBAL.ui.palette[1]}
 						d={`
 							M 0,0
-							h ${GLOBAL.slot.width + 2 * shadowWallOffset}
-							v ${GLOBAL.slot.width / 2 + shadowWallOffset}
+							h ${GLOBAL.slot.width + (2 * shadowWallOffset)}
+							v ${(shadowExtension) + shadowWallOffset}
 							h ${-shadowWallOffset}
-							v ${-GLOBAL.slot.width / 2 + GLOBAL.slot.borderRadius}
+							v ${-shadowExtension + GLOBAL.slot.borderRadius}
 							q 0,${-GLOBAL.slot.borderRadius} ${-GLOBAL.slot.borderRadius},${-GLOBAL.slot.borderRadius}
-							h ${-GLOBAL.slot.width + 2 * GLOBAL.slot.borderRadius}
+							h ${-GLOBAL.slot.width + (2 * GLOBAL.slot.borderRadius)}
 							q ${-GLOBAL.slot.borderRadius},0 ${-GLOBAL.slot.borderRadius},${GLOBAL.slot.borderRadius}
-							v ${GLOBAL.slot.width / 2 - GLOBAL.slot.borderRadius}
+							v ${shadowExtension - GLOBAL.slot.borderRadius}
 							h ${-shadowWallOffset}
 							z
 						`}
@@ -58,9 +61,10 @@ export function SlotTopShadow() {
 }
 
 
-export function SlotBottomShadow() {
+interface SlotBottomShadowInterface { style?: any }
+export function SlotBottomShadow({ style }: SlotBottomShadowInterface) {
 	return (
-		<View style={styles.slotShadowContainer} pointerEvents="none">
+		<View style={[styles.slotShadowContainer, style]} pointerEvents="none">
 			{Array.from({ length: 4 }).map((_, i) => (
 				<Svg
 					key={`shadow-bottom-${i}`}
@@ -74,7 +78,7 @@ export function SlotBottomShadow() {
 					viewBox={`0 0 ${GLOBAL.slot.width + 2 * shadowWallOffset} ${GLOBAL.slot.ellipseSemiMinor + shadowWallOffset}`}
 				>
 					<Path
-						fill={GLOBAL.ui.colors[1]}
+						fill={GLOBAL.ui.palette[1]}
 						d={`
 							M 0,0
 							h ${shadowWallOffset}

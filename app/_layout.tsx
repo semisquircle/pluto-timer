@@ -6,7 +6,6 @@ import * as ExpoLocation from "expo-location";
 import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Path, Svg } from "react-native-svg";
 
 
@@ -90,17 +89,17 @@ const styles = StyleSheet.create({
 	},
 
 	slotMask: {
-		flex: 1,
+		position: "absolute",
+		top: GLOBAL.screen.topOffset,
 		width: GLOBAL.slot.width,
-		maxHeight: GLOBAL.slot.height,
-		overflow: "hidden",
+		height: GLOBAL.slot.height,
 	},
 
 	slotBG: {
 		position: "absolute",
 		width: "100%",
 		height: "100%",
-		backgroundColor: GLOBAL.ui.colors[1],
+		backgroundColor: GLOBAL.ui.palette[1],
 	},
 
 	tabContainer: {
@@ -125,50 +124,33 @@ const styles = StyleSheet.create({
 });
 
 export default function Layout() {
-	//* Load save
+	//* App storage
+	const InitDefaultSaveData = GLOBAL.useSaveStore((state) => state.initDefaultSaveData);
 	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
 	const IsSaveLoaded = GLOBAL.useSaveStore((state) => state.isSaveLoaded);
 	useEffect(() => {
+		InitDefaultSaveData();
 		LoadSave();
 	}, []);
 
-
-	//* Set safe area insets
-	const screenInsets = useSafeAreaInsets();
-	useEffect(() => {
-		GLOBAL.screen.topOffset = screenInsets.top;
-		GLOBAL.screen.bottomOffset = screenInsets.bottom;
-	}, []);
-
-
-	//* App storage
 	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
 	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
 	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
 	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
-	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
-	const ActiveCity = SavedCities[ActiveCityIndex];
 
-	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
-	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
-
-	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
-	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
-
-
-	//* Calculate body times (after save load)
+	//* Set safe area insets
+	/* const [areInsetsSet, setAreInsetsSet] = useState<boolean>(false);
+	const screenInsets = useSafeAreaInsets();
 	useEffect(() => {
-		if (IsSaveLoaded) {
-			SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
-		}
-	}, [IsSaveLoaded]);
+		GLOBAL.screen.topOffset = screenInsets.top;
+		GLOBAL.screen.bottomOffset = screenInsets.bottom;
+		setAreInsetsSet(true);
+	}, []); */
 
 
 	//* Fonts
@@ -224,13 +206,23 @@ export default function Layout() {
 	}, []);
 
 
+	//* Calculate body times (after save load)
+	useEffect(() => {
+		if (IsSaveLoaded) {
+			SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
+		}
+	}, [IsSaveLoaded, geolocation]);
+
+
 	//* Tabs
 	const [tabBeingPressed, setTabBeingPressed] = useState<number | null>(null);
+	const tabBgColor = ActiveBody?.palette[2];
+	const tabPressedBgColor = ActiveBody?.palette[3];
 
 
 	//* Components
 	return (
-		<SafeAreaView style={[styles.screen, { backgroundColor: ActiveBody?.colors[2] }]}>			
+		<View style={[styles.screen, { backgroundColor: ActiveBody?.palette[1] }]}>			
 			<StatusBar />
 
 			{/* Tab background */}
@@ -241,8 +233,8 @@ export default function Layout() {
 				viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
 			>
 				<Path
-					fill={GLOBAL.ui.colors[0]}
-					d="M 0,0 V 28.332031 C 0,30.54117 1.5075156,33.302376 3.4407579,34.370727 19.64974,43.328153 38.346903,45 49.999512,45 61.582973,45 80.314327,43.348091 96.559726,34.370693 98.49297,33.30236 100.00049,30.54117 100.00049,28.332031 V 0 Z"
+					fill={GLOBAL.ui.palette[0]}
+					d="M 0,0 V 28.332031 C 0,30.54117 1.5075156,33.302376 3.4407579,34.370727 19.64974,43.328153 38.346903,45 50,45 61.582973,45 80.314327,43.348091 96.559726,34.370693 98.49297,33.30236 100,30.54117 100,28.332031 V 0 Z"
 				/>
 			</Svg>
 
@@ -253,10 +245,11 @@ export default function Layout() {
 					style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
 					pointerEvents="none"
 				>
+					{/* Tab fills */}
 					<Svg
 						style={[
 							{ width: "100%", height: "100%" },
-							(t !== ActiveTab && t !== tabBeingPressed) && GLOBAL.ui.btnShadowStyle
+							(t !== ActiveTab && t !== tabBeingPressed) && GLOBAL.ui.btnShadowStyle()
 						]}
 						width={GLOBAL.slot.width}
 						height={GLOBAL.nav.height + 1}
@@ -264,17 +257,17 @@ export default function Layout() {
 					>
 						<Path
 							key={`tab-path${tab.key}`}
-							fill={(t == ActiveTab) ? ActiveBody?.colors[2] : ActiveBody?.colors[3]}
+							fill={(t == tabBeingPressed) ? tabPressedBgColor : tabBgColor }
 							d={tab.handlePath}
 						/>
 					</Svg>
 
+					{/* Tab aero states */}
 					<ExpoImage
 						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 0 : 1 }]}
 						source={tab.unpressedSrc}
 						contentFit="fill"
 					/>
-
 					<ExpoImage
 						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 1 : 0 }]}
 						source={tab.pressedSrc}
@@ -286,15 +279,18 @@ export default function Layout() {
 						style={[
 							styles.tabIcon,
 							tab.iconStyle,
-							(t !== ActiveTab) && GLOBAL.ui.btnShadowStyle
+							GLOBAL.ui.btnShadowStyle(
+								(t !== ActiveTab) ? "down" : "middle",
+								(t !== ActiveTab) ? "black" : ActiveBody?.palette[1]
+							)
 						]}
 						viewBox="0 0 100 100"
 					>
 						<Path
-							fill={(t === ActiveTab) ? ActiveBody?.colors[4] : GLOBAL.ui.colors[0]}
-							stroke={(t === ActiveTab) ? ActiveBody?.colors[4] : GLOBAL.ui.colors[0]}
+							fill={(t === ActiveTab) ? ActiveBody?.palette[0] : GLOBAL.ui.palette[0]}
+							stroke={(t === ActiveTab) ? ActiveBody?.palette[0] : GLOBAL.ui.palette[0]}
 							strokeWidth={2}
-							d={(t == 2) ? ActiveBody?.icon! : tab.iconPath}
+							d={(t == 2) ? ActiveBody?.icon : tab.iconPath}
 						/>
 					</Svg>
 				</View>
@@ -396,6 +392,6 @@ export default function Layout() {
 					></Pressable>
 				))}
 			</View>
-		</SafeAreaView>
+		</View>
 	);
 }

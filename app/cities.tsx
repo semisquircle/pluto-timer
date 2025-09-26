@@ -17,12 +17,14 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 //* City input
 const cityInputHeight = 45;
-const citySearchSvgDimension = 0.6 * cityInputHeight;
+const svgIconDimension = 0.6 * cityInputHeight;
 
 
-//* Text fitting
+//* City options
 const cityHeight = 110;
-const cityPadding = GLOBAL.screen.borderWidth;
+const cityWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
+const cityWidthDiff = 2 * GLOBAL.screen.horizOffset;
+const cityPadding = GLOBAL.screen.horizOffset;
 const cityDateTextSize = GLOBAL.ui.bodyTextSize;
 const cityTimeTextSize = cityHeight - cityDateTextSize - GLOBAL.ui.inputBorderWidth;
 
@@ -51,8 +53,8 @@ const styles = StyleSheet.create({
 	skewContainer: {
 		width: "100%",
 		height: "100%",
-		padding: GLOBAL.screen.borderWidth,
-		paddingTop: GLOBAL.screen.borderWidth,
+		padding: GLOBAL.screen.horizOffset,
+		paddingTop: GLOBAL.screen.horizOffset,
 	},
 
 	focusDarken: {
@@ -61,7 +63,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		width: GLOBAL.slot.width,
 		height: GLOBAL.slot.height,
-		backgroundColor: GLOBAL.ui.colors[1],
+		backgroundColor: GLOBAL.ui.palette[1],
 		zIndex: 9990,
 	},
 
@@ -69,8 +71,8 @@ const styles = StyleSheet.create({
 		width: "100%",
 		fontFamily: "Trickster-Reg",
 		fontSize: 30,
-		marginBottom: GLOBAL.screen.borderWidth,
-		color: GLOBAL.ui.colors[0],
+		marginBottom: GLOBAL.screen.horizOffset,
+		color: GLOBAL.ui.palette[0],
 		zIndex: 9997,
 	},
 
@@ -85,18 +87,18 @@ const styles = StyleSheet.create({
 		width: "100%",
 		height: cityInputHeight,
 		paddingHorizontal: cityPadding,
-		borderColor: GLOBAL.ui.colors[0],
+		borderColor: GLOBAL.ui.palette[0],
 		borderWidth: GLOBAL.ui.inputBorderWidth,
-		borderRadius: GLOBAL.screen.borderWidth,
-		backgroundColor: GLOBAL.ui.colors[1],
-		color: GLOBAL.ui.colors[1],
+		borderRadius: GLOBAL.screen.horizOffset,
+		backgroundColor: GLOBAL.ui.palette[1],
+		color: GLOBAL.ui.palette[1],
 		zIndex: 9999,
 	},
 
 	citySearchSvg: {
-		width: citySearchSvgDimension,
-		height: citySearchSvgDimension,
-		marginRight: (cityInputHeight - (2 * GLOBAL.ui.inputBorderWidth) - citySearchSvgDimension) / 2,
+		width: svgIconDimension,
+		height: svgIconDimension,
+		marginRight: (cityInputHeight - (2 * GLOBAL.ui.inputBorderWidth) - svgIconDimension) / 2,
 	},
 
 	cityInput: {
@@ -104,16 +106,16 @@ const styles = StyleSheet.create({
 		fontFamily: "Trickster-Reg",
 		fontSize: GLOBAL.ui.bodyTextSize,
 		marginBottom: 0.1 * GLOBAL.ui.bodyTextSize,
-		color: GLOBAL.ui.colors[0],
+		color: GLOBAL.ui.palette[0],
 	},
 
 	cityResultContainer: {
 		position: "absolute",
-		top: cityInputHeight - GLOBAL.screen.borderWidth,
+		top: cityInputHeight - GLOBAL.screen.horizOffset,
 		width: "100%",
-		paddingTop: 3 * GLOBAL.screen.borderWidth,
-		borderBottomLeftRadius: GLOBAL.screen.borderWidth,
-		borderBottomRightRadius: GLOBAL.screen.borderWidth,
+		paddingTop: 3 * GLOBAL.screen.horizOffset,
+		borderBottomLeftRadius: GLOBAL.screen.horizOffset,
+		borderBottomRightRadius: GLOBAL.screen.horizOffset,
 		zIndex: 9998,
 	},
 
@@ -121,26 +123,26 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		width: "100%",
 		// height: cityInputHeight,
-		paddingLeft: GLOBAL.screen.borderWidth,
+		paddingLeft: GLOBAL.screen.horizOffset,
 	},
 
 	cityResultText: {
 		fontFamily: "Trickster-Reg",
 		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
-		color: GLOBAL.ui.colors[0],
+		color: GLOBAL.ui.palette[0],
 	},
 
 	cityScrollContainer: {
 		width: "100%",
 		minHeight: GLOBAL.slot.height,
-		paddingTop: 2 * GLOBAL.screen.borderWidth,
-		marginTop: -GLOBAL.screen.borderWidth,
+		paddingTop: 2 * GLOBAL.screen.horizOffset,
+		marginTop: -GLOBAL.screen.horizOffset,
 		overflow: "hidden",
 	},
 
 	city: {
 		height: cityHeight,
-		borderRadius: GLOBAL.screen.borderWidth,
+		borderRadius: GLOBAL.screen.horizOffset,
 		overflow: "hidden",
 	},
 
@@ -178,13 +180,13 @@ const styles = StyleSheet.create({
 		fontFamily: "Trickster-Reg",
 		fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
 		marginTop: "auto",
-		color: GLOBAL.ui.colors[0],
+		color: GLOBAL.ui.palette[0],
 	},
 
 	cityLon: {
 		fontFamily: "Trickster-Reg",
 		fontSize: 0.5 * GLOBAL.ui.bodyTextSize,
-		color: GLOBAL.ui.colors[0],
+		color: GLOBAL.ui.palette[0],
 	},
 
 	cityTimeContainer: {
@@ -196,7 +198,7 @@ const styles = StyleSheet.create({
 		textAlign: "right",
 		fontFamily: "Hades-ShortSkinny",
 		fontSize: cityTimeTextSize - GLOBAL.ui.bodyTextSize,
-		color: GLOBAL.ui.colors[0],
+		color: GLOBAL.ui.palette[0],
 	},
 
 	cityBodyDate: {
@@ -207,8 +209,9 @@ const styles = StyleSheet.create({
 	},
 
 	cityScrollSpacer: {
+		position: "relative",
 		width: "100%",
-		height: 2.2 * GLOBAL.slot.ellipseSemiMinor,
+		height: GLOBAL.slot.ellipseSemiMinor + GLOBAL.slot.shadowRadius,
 	},
 });
 
@@ -239,12 +242,11 @@ export default function CitiesScreen() {
 	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
-	//! Hacky fix
-	const [renderKey, setRenderKey] = useState<string>("");
-	useEffect(() => {
-		const r = (Math.random() + 1).toString(36).substring(7);
-		setRenderKey(r);
-	}, [ActiveTab]);
+	//* Colors
+	const bodyTextColor = ActiveBody?.palette[0];
+	const activeCityColor = ActiveBody?.palette[2];
+	const inactiveCityColor = ActiveBody?.palette[3];
+	const youAreHereColor = GLOBAL.ui.palette[0];
 
 
 	//* City input
@@ -279,7 +281,7 @@ export default function CitiesScreen() {
 
 	//* Components
 	return (
-		<View key={`render-${renderKey}`} style={styles.content}>
+		<View style={styles.content}>
 			<View style={[styles.skewContainer, GLOBAL.ui.skewStyle]}>
 				<Text style={styles.title}>Saved Locations</Text>
 
@@ -297,17 +299,17 @@ export default function CitiesScreen() {
 					>
 						<Svg style={styles.citySearchSvg} viewBox="0 0 100 100">
 							<Path
-								fill={ActiveBody?.colors[1]}
-								stroke={ActiveBody?.colors[1]}
-								strokeWidth={4}
-								d="m 42.906738,10.415039 c -16.316584,0 -32.633047,10.406062 -33.766113,31.217285 1.641645,30.149185 35.152068,38.450985 54.360352,24.918457 8.95463,6.24131 16.471896,13.916224 22.551269,23.033203 l 4.806152,-4.806152 C 81.872109,78.782839 74.283505,71.386463 68.085938,62.598633 72.928502,57.506614 76.188788,50.522275 76.672852,41.632324 75.539786,20.821101 59.223323,10.415039 42.906738,10.415039 Z m 0,1.700684 c 14.050455,0 28.10084,9.838441 26.967774,29.516601 2.266131,39.351897 -56.201678,39.351897 -53.935547,0 -1.133066,-19.67816 12.917318,-29.516601 26.967773,-29.516601 z"
+								fill={bodyTextColor}
+								stroke={bodyTextColor}
+								strokeWidth={3}
+								d="M 43.056322,11.247625 C 27.082725,11.247625 11.109248,21.434942 10,41.808696 11.607136,71.32412 44.413143,79.45141 63.217652,66.203347 71.984049,72.313459 79.343296,79.82704 85.294874,88.752375 L 90,84.047247 C 81.202609,78.178277 73.773523,70.937379 67.706234,62.334276 72.447003,57.349296 75.638755,50.511773 76.112644,41.808696 75.003396,21.434942 59.029919,11.247625 43.056322,11.247625 Z m 0,1.664934 c 13.755103,0 27.510137,9.631628 26.400889,28.896137 2.218495,38.524688 -55.020272,38.524688 -52.801777,0 C 15.546186,22.544187 29.30122,12.912559 43.056322,12.912559 Z"
 							/>
 						</Svg>
 
 						<TextInput
 							style={styles.cityInput}
 							placeholder="Search for a city"
-							placeholderTextColor={ActiveBody?.colors[1]}
+							placeholderTextColor={bodyTextColor}
 							ref={cityInputRef}
 							value={cityInputValue}
 							onPress={() => {
@@ -329,7 +331,7 @@ export default function CitiesScreen() {
 							{cityObjResults.map((city, i) => (
 								<Pressable
 									key={`city-suggestion${i}`}
-									style={[styles.cityResult, { marginTop: (i > 0) ? 1.5 * GLOBAL.screen.borderWidth : 0 }]}
+									style={[styles.cityResult, { marginTop: (i > 0) ? 1.5 * GLOBAL.screen.horizOffset : 0 }]}
 									onPress={() => {
 										cityInputRef.current?.blur();
 										setIsCityInputFocused(false);
@@ -352,41 +354,40 @@ export default function CitiesScreen() {
 					showsVerticalScrollIndicator={false}
 				>
 					{SavedCities.map((city: GLOBAL.City, i: number) => {
-						const cityWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth);
-						const cityPressProgress = useSharedValue(0);
+						const cityPressProgress = useSharedValue((i == ActiveCityIndex) ? 1 : 0);
 						useEffect(() => {
 							cityPressProgress.value = withTiming(
-								 (i == ActiveCityIndex) ? 1 : 0,
+								(i == ActiveCityIndex) ? 1 : 0,
 								{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
 							);
 						}, [ActiveCityIndex]);
 					
 						const bodyAnimStyle = useAnimatedStyle(() => {
 							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
 								backgroundColor: interpolateColor(
 									cityPressProgress.value,
 									[0, 1],
-									[ActiveBody?.colors[4]!, ActiveBody?.colors[3]!]
+									[inactiveCityColor!, activeCityColor!]
 								),
 							};
 						});
 
 						const svgAnimProps = useAnimatedProps(() => {
 							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
 							};
 						});
 
 						const bottomBlobAnimProps = useAnimatedProps(() => {
 							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)),
+								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
 							};
 						});
 
 						const topBlobAnimProps = useAnimatedProps(() => {
 							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * (2 * GLOBAL.screen.borderWidth)) - (2 * GLOBAL.ui.inputBorderWidth),
+								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff) - (2 * GLOBAL.ui.inputBorderWidth),
 							};
 						});
 
@@ -418,7 +419,7 @@ export default function CitiesScreen() {
 										</LinearGradient>
 
 										<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
-											gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth) - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
+											gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset) - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
 										>
 											<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
 											<Stop offset="100%" stopColor="white" stopOpacity="0" />
@@ -438,7 +439,7 @@ export default function CitiesScreen() {
 										y={0}
 										animatedProps={bottomBlobAnimProps}
 										height={cityHeight}
-										rx={GLOBAL.screen.borderWidth}
+										rx={GLOBAL.screen.horizOffset}
 									/>
 
 									<AnimatedRect
@@ -446,17 +447,17 @@ export default function CitiesScreen() {
 										x={GLOBAL.ui.inputBorderWidth}
 										y={GLOBAL.ui.inputBorderWidth}
 										animatedProps={topBlobAnimProps}
-										height={2 * (GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth)}
-										rx={GLOBAL.screen.borderWidth - GLOBAL.ui.inputBorderWidth}
+										height={2 * (GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth)}
+										rx={GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth}
 									/>
 								</AnimatedSvg>
 
-								<View style={[styles.cityWrapper, GLOBAL.ui.btnShadowStyle]}>
+								<View style={[styles.cityWrapper, GLOBAL.ui.btnShadowStyle()]}>
 									<View style={styles.cityNameContainer}>
 										<Text
 											style={[
 												styles.cityName,
-												{ color: ActiveBody?.colors[0] }
+												{ color: bodyTextColor }
 											]}
 											numberOfLines={1}
 										>{city.name}</Text>
@@ -465,7 +466,7 @@ export default function CitiesScreen() {
 											<Text
 												style={[
 													styles.youAreHere,
-													{ color: ActiveBody?.colors[1] }
+													{ color: youAreHereColor }
 												]}
 												numberOfLines={1}
 											>¹ You are here!</Text>
@@ -481,7 +482,7 @@ export default function CitiesScreen() {
 										<Text
 											style={[
 												styles.cityBodyDate,
-												{ color: ActiveBody?.colors[0] }
+												{ color: bodyTextColor }
 											]}
 										>{city.getDateShort()}</Text>
 									</View>
@@ -490,7 +491,30 @@ export default function CitiesScreen() {
 						);
 					})}
 
-					<View style={styles.cityScrollSpacer}></View>
+					<View style={styles.cityScrollSpacer}>
+						<Pressable
+							style={{
+								position: "absolute",
+								right: 0,
+								top: GLOBAL.screen.horizOffset,
+								width: svgIconDimension,
+								height: svgIconDimension,
+							}}
+						>
+							<Svg
+								width={svgIconDimension}
+								height={svgIconDimension}
+								viewBox="0 0 100 100"
+							>
+								<Path
+									fill={bodyTextColor}
+									stroke={bodyTextColor}
+									strokeWidth={3}
+									d="m 49.999512,12.46582 c -19.451965,0 -38.903139,12.510266 -39.999024,37.533692 2.191771,50.046858 77.807741,50.046858 79.999512,0 C 88.904116,24.976086 69.451475,12.46582 49.999512,12.46582 Z m 0,1.64209 c 17.260191,0 34.520683,11.96406 33.424804,35.891602 2.191766,47.855081 -69.039915,47.855081 -66.848144,0 C 15.480285,26.07197 32.739319,14.10791 49.999512,14.10791 Z m -17.692383,30.086426 -5.806641,5.755371 5.806641,5.856445 5.805176,-5.856445 z m 17.692383,0 -5.805176,5.755371 5.805176,5.856445 5.80664,-5.856445 z m 17.693847,0 -5.80664,5.755371 5.80664,5.856445 L 73.5,49.949707 Z"
+								/>
+							</Svg>
+						</Pressable>
+					</View>
 				</ScrollView>
 			</View>
 

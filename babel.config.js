@@ -1,4 +1,4 @@
-module.exports = function (api) {
+module.exports = function(api) {
   api.cache(true);
   return {
     presets: [
@@ -7,6 +7,6 @@ module.exports = function (api) {
         { reanimated: false }
       ]
     ],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins: ['react-native-worklets/plugin'],
   };
 };

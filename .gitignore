@@ -41,10 +41,12 @@ app-example
 #* Semi
 ios/
 android/
+python/
 **/*.txt
 **/*.html
 **/*.kra
 **/*.exe
 **/*.csv
+**/*.gd
 **/uncompressed
 **/bodies-originals

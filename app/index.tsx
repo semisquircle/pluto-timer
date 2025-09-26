@@ -92,6 +92,13 @@ const bodyTimeFontPrefs: any[] = [
 ];
 
 
+//* Body
+const bodyFrameWidth = 20;
+const bodyFrameHeight = 20;
+const totalBodyFrames = bodyFrameWidth * bodyFrameHeight;
+const bodyAnimFPS = 30;
+
+
 export default function HomeScreen() {
 	//* App storage
 	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
@@ -118,12 +125,15 @@ export default function HomeScreen() {
 	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
+	//* Colors
+	const bodyTextColor = ActiveBody?.palette[0];
+	const activeCityColor = ActiveBody?.palette[1];
+	const youAreHereColor = ActiveBody?.palette[2];
+
+
 	//* Body rotation animation/dragging
-	const bodyDiameter = GLOBAL.slot.width;
-	const bodyFrameWidth = 20;
-	const bodyFrameHeight = 20;
-	const totalBodyFrames = bodyFrameWidth * bodyFrameHeight;
-	const bodyAnimFPS = 30;
+	const bodyMajorAxis = ActiveBody?.scale.x! * GLOBAL.slot.width;
+	const bodyMinorAxis = ActiveBody?.scale.y! * GLOBAL.slot.width;
 
 	const [isBodyPlaceholderImgDisplayed, setIsBodyPlaceholderImgDisplayed] = useState<boolean>(false);
 	const [isBodySpriteSheetDisplayed, setIsBodySpriteSheetDisplayed] = useState<boolean>(false);
@@ -144,22 +154,25 @@ export default function HomeScreen() {
 			}, 1000 / bodyAnimFPS);
 		}
 		else clearInterval(bodyIntervalRef.current);
+
+		dragStartFrameRef.current = bodyFrame;
+
 		return () => clearInterval(bodyIntervalRef.current);
 	}, [isBodySpriteSheetDisplayed, isDraggingBody]);
 
 	const bodyPanResponder = useRef(
 		PanResponder.create({
 			onStartShouldSetPanResponder: (evt) => {
-				const x = evt.nativeEvent.pageX - GLOBAL.screen.borderWidth;
-				const y = evt.nativeEvent.pageY - GLOBAL.screen.topOffset - GLOBAL.screen.borderWidth;
-				const r = bodyDiameter / 2;
-				const dx = x - r;
-				const dy = y;
-				return Math.sqrt(dx * dx + dy * dy) <= r; //? Only accept touches inside circle
+				const a = bodyMinorAxis / 2;
+				const b = bodyMajorAxis / 2;
+				const x = evt.nativeEvent.pageX - GLOBAL.screen.horizOffset - a;
+				const y = evt.nativeEvent.pageY - GLOBAL.screen.topOffset - GLOBAL.screen.horizOffset;
+				const theta = Math.atan2(x, y);
+				const r = (a * b) / Math.sqrt(a**2 * Math.sin(theta)**2 + b**2 * Math.cos(theta)**2);
+				return Math.sqrt(x**2 + y**2) <= r; //? Only accept touches inside ellipse
 			},
 			onPanResponderGrant: (evt) => {
 				setIsDraggingBody(true);
-				dragStartFrameRef.current = bodyFrame;
 				dragStartXRef.current = evt.nativeEvent.pageX;
 				dragStartYRef.current = evt.nativeEvent.pageY;
 			},
@@ -170,8 +183,8 @@ export default function HomeScreen() {
 				const dy = dragCurrentY - dragStartYRef.current;
 
 				// Axial tilt in radians (negative because screen Y increases downward)
-				const theta = (ActiveBody?.axialTilt ?? 0) * Math.PI / 180;
-				const dragAlongTilt = dx * Math.cos(theta) + dy * Math.sin(theta);
+				const theta = (ActiveBody?.axialTilt ?? 0) * (Math.PI / 180);
+				const dragAlongTilt = (dx * Math.cos(theta)) + (dy * Math.sin(theta));
 
 				const dragChangeXAdjusted = Math.round(-dragAlongTilt / 2); // Negative to match original direction
 				setBodyFrame(modFrame(dragStartFrameRef.current + dragChangeXAdjusted));
@@ -243,7 +256,7 @@ export default function HomeScreen() {
 		, 0);
 	}, [nextBodyTimeText]);
 
-	const locationNameTextOffset = GLOBAL.screen.borderWidth;
+	const locationNameTextOffset = GLOBAL.screen.horizOffset;
 	const locationNameTextSize =
 		(ActiveCity.name.length > 20) ? GLOBAL.ui.bodyTextSize :
 		(ActiveCity.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize :
@@ -264,33 +277,32 @@ export default function HomeScreen() {
 
 		bodySpriteSheetContainer: {
 			position: "absolute",
-			top: -bodyDiameter / 2,
-			width: bodyDiameter,
-			height: bodyDiameter,
+			top: -bodyMinorAxis / 2,
+			width: bodyMajorAxis,
+			height: bodyMinorAxis,
 			overflow: "hidden",
-			transform: [{ rotate: ActiveBody?.axialTilt + "deg" }],
 		},
 
 		bodyPlaceholder: {
 			position: "absolute",
-			width: bodyDiameter,
-			height: bodyDiameter,
-			backgroundColor: ActiveBody?.colors[2],
+			width: bodyMajorAxis,
+			height: bodyMinorAxis,
+			backgroundColor: ActiveBody?.palette[2],
 			borderRadius: "50%",
 		},
 
 		bodyPlaceholderImg: {
 			position: "absolute",
-			width: bodyDiameter,
-			height: bodyDiameter
+			width: bodyMajorAxis,
+			height: bodyMinorAxis
 		},
 
 		bodySpriteSheetWrapper: {
 			position: "absolute",
-			left: -(bodyFrame % bodyFrameWidth) * bodyDiameter,
-			top: -Math.floor(bodyFrame / bodyFrameWidth) * bodyDiameter,
-			width: bodyFrameWidth * bodyDiameter,
-			height: bodyFrameHeight * bodyDiameter,
+			left: -(bodyFrame % bodyFrameWidth) * bodyMajorAxis,
+			top: -Math.floor(bodyFrame / bodyFrameWidth) * bodyMinorAxis,
+			width: bodyFrameWidth * bodyMajorAxis,
+			height: bodyFrameHeight * bodyMinorAxis,
 		},
 
 		bodySpriteSheetImg: {
@@ -337,8 +349,8 @@ export default function HomeScreen() {
 			position: "absolute",
 			justifyContent: "center",
 			alignItems: "center",
-			top: bodyDiameter / 2,
-			height: GLOBAL.slot.height - (bodyDiameter / 2) - (youAreHereTextOffset + youAreHereTextSize),
+			top: bodyMinorAxis / 2,
+			height: GLOBAL.slot.height - (bodyMinorAxis / 2) - (youAreHereTextOffset + youAreHereTextSize),
 		},
 
 		nextText: {
@@ -346,21 +358,21 @@ export default function HomeScreen() {
 			textAlign: "center",
 			fontFamily: "Trickster-Reg",
 			fontSize: GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
+			color: GLOBAL.ui.palette[0],
 		},
 
 		bodyTimeText: {
 			fontFamily: "Trickster-Reg",
-			color: ActiveBody?.colors[1],
+			color: bodyTextColor,
 		},
 
 		nextBodyTime: {
 			width: "100%",
 			textAlign: "center",
 			fontFamily: bodyTimeFontPref.name,
-			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.borderWidth)) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
-			marginVertical: GLOBAL.screen.borderWidth,
-			color: GLOBAL.ui.colors[0],
+			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset)) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
+			marginVertical: GLOBAL.screen.horizOffset,
+			color: GLOBAL.ui.palette[0],
 		},
 
 		dateText: {
@@ -370,12 +382,12 @@ export default function HomeScreen() {
 			fontSize: GLOBAL.ui.bodyTextSize,
 			marginTop: -0.15 * GLOBAL.ui.bodyTextSize,
 			paddingBottom: 0.3 * GLOBAL.ui.bodyTextSize,
-			color: GLOBAL.ui.colors[0],
+			color: GLOBAL.ui.palette[0],
 		},
 
 		nextBodyDate: {
 			fontFamily: "Trickster-Reg",
-			color: ActiveBody?.colors[1],
+			color: bodyTextColor,
 		},
 
 		cityTextContainer: {
@@ -464,7 +476,7 @@ export default function HomeScreen() {
 					{(ActiveCityIndex == 0) && 
 						<SvgText
 							key={`cur-loc-${youAreHereTextOffset}`} //? Forces text update on location change
-							fill={ActiveBody?.colors[3]}
+							fill={youAreHereColor}
 							fontFamily="Trickster-Reg-Arrow"
 							fontSize={youAreHereTextSize}
 							letterSpacing="0.5"
@@ -477,7 +489,7 @@ export default function HomeScreen() {
 					}
 
 					<SvgText
-						fill={ActiveBody?.colors[1]}
+						fill={activeCityColor}
 						fontFamily="Trickster-Reg"
 						fontSize={locationNameTextSize}
 						letterSpacing="1"
