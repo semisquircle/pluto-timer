@@ -29,14 +29,13 @@ const boiPopupCloseBtnDimension = (2 * boiPopupBorderRadius) - (5 * GLOBAL.ui.in
 
 
 //* Sol
+const sol = AllBodies[0];
 const solDiameter = GLOBAL.slot.width;
 const solFrameDimension = 1.3 * solDiameter;
 const solFrameWidth = 20;
 const solFrameHeight = 20;
 const totalSolFrames = solFrameWidth * solFrameHeight;
 const solAnimFPS = 30;
-const solSeed = 2855613398;
-const solPalette = ["#ffe066", "#ffe066", "#feb631", "#e3681e", "#992d0b", "#000000", "#000000"];
 
 
 //* Systems
@@ -56,16 +55,16 @@ const notToScaleTextSize = GLOBAL.ui.bodyTextSize;
 
 
 //* Body button
-interface bodyBtnInterface {
+interface bodyBtnTypes {
 	body: any,
 	diameter: number,
 	isInterested: boolean,
 	onPress: () => void,
 	onDisplay: () => void,
 }
-function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnInterface) {
+function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnTypes) {
 	const [isImgDisplayed, setIsImgDisplayed] = useState<boolean>(false);
-	const newDiameter = (body.hasRings) ? 3 * diameter : diameter;
+	const newDiameter = (body.hasRings) ? 2 * diameter : diameter;
 
 	const bodyInterestProgress = useSharedValue(0);
 	useEffect(() => {
@@ -179,7 +178,7 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		width: solDiameter,
 		height: solDiameter,
-		backgroundColor: "#FFB732",
+		backgroundColor: sol.colors[2],
 		borderRadius: "50%",
 	},
 
@@ -384,7 +383,7 @@ export default function BodiesScreen() {
 					}
 				</View>
 
-				{SolarSystem.map((system, systemIndex) => {
+				{SolarSystem.slice(1).map((system, systemIndex) => {
 					const numSatellites = system.moons.length;
 					const systemHeight = (numSatellites == 0) ? centerBodyDiameter : systemDiameter;
 					const systemMargin = (systemIndex == 0) ? systemSpacing + systemNameTextOffset + systemNameTextSize : systemSpacing;
@@ -399,58 +398,6 @@ export default function BodiesScreen() {
 								marginTop: systemMargin,
 							}]}
 						>
-							<Svg
-								style={{ position: "absolute" }}
-								width={systemNameTextMajorAxis}
-								height={systemNameTextMinorAxis}
-								viewBox={`0 0 ${systemNameTextMajorAxis} ${systemNameTextMinorAxis}`}
-							>
-								<Defs>
-									<Ellipse
-										id="system-name-path"
-										rx={((system.parent.scale.x * centerBodyDiameter) / 2) + systemNameTextOffset}
-										ry={((system.parent.scale.y * centerBodyDiameter) / 2) + systemNameTextOffset}
-										cx={systemNameTextMajorAxis / 2}
-										cy={systemNameTextMinorAxis / 2}
-									/>
-
-									<Path
-										id="system-system-path"
-										d={`
-											M ${systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-											A ${(systemNameTextMajorAxis / 2) - systemNameTextDescent} ${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-												0 0 0 ${systemNameTextMajorAxis - systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-										`}
-									/>
-								</Defs>
-
-								<SvgText
-									fill={GLOBAL.ui.palette[0]}
-									fontFamily="Trickster-Reg"
-									fontSize={systemNameTextSize}
-									letterSpacing="0"
-									textAnchor="middle"
-								>
-									<TextPath href="#system-name-path" startOffset="71%">
-										<TSpan>{system.name}</TSpan>
-									</TextPath>
-								</SvgText>
-
-								{(numSatellites > 0) &&
-									<SvgText
-										fill={GLOBAL.ui.palette[0]}
-										fontFamily="Trickster-Reg"
-										fontSize={systemNameTextSize}
-										letterSpacing="1"
-										textAnchor="middle"
-									>
-										<TextPath href="#system-system-path" startOffset="54%">
-											<TSpan>System</TSpan>
-										</TextPath>
-									</SvgText>
-								}
-							</Svg>
-
 							<BodyBtn
 								body={system.parent}
 								diameter={centerBodyDiameter}
@@ -464,6 +411,65 @@ export default function BodiesScreen() {
 									setNumBodyImgsLoaded(prev => prev + 1);
 								}}
 							/>
+
+							<View
+								style={{
+									position: "absolute",
+									// transform: [{ rotate: system.parent.axialTilt + "deg" }]
+								}}
+								pointerEvents="none"
+							>
+								<Svg
+									width={systemNameTextMajorAxis}
+									height={systemNameTextMinorAxis}
+									viewBox={`0 0 ${systemNameTextMajorAxis} ${systemNameTextMinorAxis}`}
+								>
+									<Defs>
+										<Ellipse
+											id="system-name-path"
+											rx={((system.parent.scale.x * centerBodyDiameter) / 2) + systemNameTextOffset}
+											ry={((system.parent.scale.y * centerBodyDiameter) / 2) + systemNameTextOffset}
+											cx={systemNameTextMajorAxis / 2}
+											cy={systemNameTextMinorAxis / 2}
+										/>
+
+										<Path
+											id="system-system-path"
+											d={`
+												M ${systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+												A ${(systemNameTextMajorAxis / 2) - systemNameTextDescent} ${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+													0 0 0 ${systemNameTextMajorAxis - systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+											`}
+										/>
+									</Defs>
+
+									<SvgText
+										fill={GLOBAL.ui.palette[0]}
+										fontFamily="Trickster-Reg"
+										fontSize={systemNameTextSize}
+										letterSpacing="0"
+										textAnchor="middle"
+									>
+										<TextPath href="#system-name-path" startOffset="74.5%">
+											<TSpan>{system.name}</TSpan>
+										</TextPath>
+									</SvgText>
+
+									{(numSatellites > 0) &&
+										<SvgText
+											fill={GLOBAL.ui.palette[0]}
+											fontFamily="Trickster-Reg"
+											fontSize={systemNameTextSize}
+											letterSpacing="1"
+											textAnchor="middle"
+										>
+											<TextPath href="#system-system-path" startOffset="50%">
+												<TSpan>System</TSpan>
+											</TextPath>
+										</SvgText>
+									}
+								</Svg>
+							</View>
 
 							{system.moons.map((moon, moonIndex) => {
 								const theta = (moonIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);

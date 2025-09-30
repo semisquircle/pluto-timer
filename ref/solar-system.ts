@@ -94,8 +94,8 @@ const solarSystemImgs: Record<string, SolarSystemImg> = {
 		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Callisto.png"),
 		thumbnail: require("@/assets/images/bodies/thumbnails/Callisto.png"),
 	},
-	"Saturn": {
-		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Pluto.png"),
+	"Saturn": { // 3.7 and 0.3
+		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Saturn.png"),
 		thumbnail: require("@/assets/images/bodies/thumbnails/Saturn.png"),
 	},
 	"Titan": {
@@ -126,8 +126,8 @@ const solarSystemImgs: Record<string, SolarSystemImg> = {
 		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Mimas.png"),
 		thumbnail: require("@/assets/images/bodies/thumbnails/Mimas.png"),
 	},
-	"Uranus": {
-		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Pluto.png"),
+	"Uranus": { // 2.7 and 0.25
+		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Uranus.png"), // Rings: 1123178002
 		thumbnail: require("@/assets/images/bodies/thumbnails/Uranus.png"),
 	},
 	"Titania": {
@@ -151,7 +151,7 @@ const solarSystemImgs: Record<string, SolarSystemImg> = {
 		thumbnail: require("@/assets/images/bodies/thumbnails/Miranda.png"),
 	},
 	"Neptune": {
-		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Pluto.png"),
+		spriteSheet: require("@/assets/images/bodies/sprite-sheets/Neptune.png"),
 		thumbnail: require("@/assets/images/bodies/thumbnails/Neptune.png"),
 	},
 	"Triton": {

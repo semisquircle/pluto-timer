@@ -186,6 +186,7 @@ type saveStoreTypes = {
 	setActiveBody: (bodyName: string) => void, //! Not save worthy
 
 	savedCities: City[],
+	setSavedCities: (cities: City[]) => void, //! Not save worthy
 	unshiftSavedCity: (city: City) => void, //! Not save worthy
 	pushSavedCity: (city: City) => void, //! Not save worthy
 	deleteSavedCity: (index: number) => void, //! Not save worthy
@@ -259,10 +260,14 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	},
 
 	savedCities: [
+		// new City("Nowhere", 40, 74),
 		new City("Orleans", 41.7935216, -69.9604816),
 		new City("Chacharramendi", -37.331313, -65.65187),
 		new City("The Longest City Name You Can Think Of", 78.216667, 15.633333),
 	],
+	setSavedCities: (cities) => {
+		set({ savedCities: cities });
+	},
 	unshiftSavedCity: (city) => {
 		set(state => ({ savedCities: [city, ...state.savedCities] }));
 	},
@@ -270,7 +275,7 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		set(state => ({ savedCities: [...state.savedCities, city] }));
 	},
 	deleteSavedCity: (index) => {
-		set(state => ({ savedCities: [...state.savedCities.slice(0, index - 1), ...state.savedCities.slice(index)] }));
+		set(state => ({ savedCities: [...state.savedCities.slice(0, index), ...state.savedCities.slice(index + 1)] }));
 	},
 
 	activeCityIndex: 0,

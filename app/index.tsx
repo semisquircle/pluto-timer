@@ -101,28 +101,10 @@ const bodyAnimFPS = 30;
 
 export default function HomeScreen() {
 	//* App storage
-	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
-
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
-
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
-
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
-	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
-
-	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
-	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
-
-	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
-	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
-
-	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
-	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//* Colors
@@ -134,6 +116,8 @@ export default function HomeScreen() {
 	//* Body rotation animation/dragging
 	const bodyMajorAxis = ActiveBody?.scale.x! * GLOBAL.slot.width;
 	const bodyMinorAxis = ActiveBody?.scale.y! * GLOBAL.slot.width;
+	const ringMajorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMajorAxis;
+	const ringMinorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMinorAxis;
 
 	const [isBodyPlaceholderImgDisplayed, setIsBodyPlaceholderImgDisplayed] = useState<boolean>(false);
 	const [isBodySpriteSheetDisplayed, setIsBodySpriteSheetDisplayed] = useState<boolean>(false);
@@ -150,7 +134,7 @@ export default function HomeScreen() {
 	useEffect(() => {
 		if (isBodySpriteSheetDisplayed && !isDraggingBody) {
 			bodyIntervalRef.current = setInterval(() => {
-				setBodyFrame(prev => modFrame(prev - 1));
+				setBodyFrame(prev => modFrame(prev + 1));
 			}, 1000 / bodyAnimFPS);
 		}
 		else clearInterval(bodyIntervalRef.current);
@@ -187,7 +171,7 @@ export default function HomeScreen() {
 				const dragAlongTilt = (dx * Math.cos(theta)) + (dy * Math.sin(theta));
 
 				const dragChangeXAdjusted = Math.round(-dragAlongTilt / 2); // Negative to match original direction
-				setBodyFrame(modFrame(dragStartFrameRef.current + dragChangeXAdjusted));
+				setBodyFrame(modFrame(dragStartFrameRef.current - dragChangeXAdjusted));
 			},
 			onPanResponderRelease: () => {
 				setIsDraggingBody(false);
@@ -277,9 +261,9 @@ export default function HomeScreen() {
 
 		bodySpriteSheetContainer: {
 			position: "absolute",
-			top: -bodyMinorAxis / 2,
-			width: bodyMajorAxis,
-			height: bodyMinorAxis,
+			top: -ringMinorAxis / 2,
+			width: ringMajorAxis,
+			height: ringMinorAxis,
 			overflow: "hidden",
 		},
 
@@ -293,16 +277,16 @@ export default function HomeScreen() {
 
 		bodyPlaceholderImg: {
 			position: "absolute",
-			width: bodyMajorAxis,
-			height: bodyMinorAxis
+			width: ringMajorAxis,
+			height: ringMinorAxis
 		},
 
 		bodySpriteSheetWrapper: {
 			position: "absolute",
-			left: -(bodyFrame % bodyFrameWidth) * bodyMajorAxis,
-			top: -Math.floor(bodyFrame / bodyFrameWidth) * bodyMinorAxis,
-			width: bodyFrameWidth * bodyMajorAxis,
-			height: bodyFrameHeight * bodyMinorAxis,
+			left: -(bodyFrame % bodyFrameWidth) * ringMajorAxis,
+			top: -Math.floor(bodyFrame / bodyFrameWidth) * ringMinorAxis,
+			width: bodyFrameWidth * ringMajorAxis,
+			height: bodyFrameHeight * ringMinorAxis,
 		},
 
 		bodySpriteSheetImg: {
@@ -438,7 +422,7 @@ export default function HomeScreen() {
 				<ExpoImage style={styles.fingerImg} source={require("../assets/images/finger.png")} />
 			</Animated.View>
 
-			<View style={[styles.timeContainer, GLOBAL.ui.skewStyle]} pointerEvents="none">
+			<View style={[styles.timeContainer, GLOBAL.ui.skewStyle, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">
 				<Text style={styles.nextText}>
 					{ActiveCity.isBodyTimeNow() ? "It's " : "Your next "}
 					<Text style={styles.bodyTimeText}>{ActiveBody?.name} Time</Text>
@@ -457,7 +441,7 @@ export default function HomeScreen() {
 			</View>
 
 			{/* Curved city text */}
-			<View style={styles.cityTextContainer} pointerEvents="none">
+			<View style={[styles.cityTextContainer, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">
 				<Svg style={styles.cityTextSvg} viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}>
 					<Defs>
 						<Path id="semi-ellipse-cur-loc" fill="transparent" d={`

@@ -3,8 +3,10 @@ import { SlotBottomShadow } from "@/ref/slot-shadows";
 import allCities from "cities.json" with { type: "json" };
 import allCitiesAdmin1 from "cities.json/admin1.json" with { type: "json" };
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { NestableDraggableFlatList, NestableScrollContainer, RenderItemParams } from "react-native-draggable-flatlist";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
 
@@ -21,12 +23,14 @@ const svgIconDimension = 0.6 * cityInputHeight;
 
 
 //* City options
-const cityHeight = 110;
-const cityWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
-const cityWidthDiff = 2 * GLOBAL.screen.horizOffset;
-const cityPadding = GLOBAL.screen.horizOffset;
-const cityDateTextSize = GLOBAL.ui.bodyTextSize;
-const cityTimeTextSize = cityHeight - cityDateTextSize - GLOBAL.ui.inputBorderWidth;
+const cityOptionHeight = 110;
+const cityOptionDeleteBtnWidth = svgIconDimension + (3 * GLOBAL.ui.inputBorderWidth);
+const cityOptionDragBtnWidth = svgIconDimension + GLOBAL.ui.inputBorderWidth;
+const cityOptionMiddleBtnBaseWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
+const cityOptionPadding = GLOBAL.screen.horizOffset;
+const cityOptionGap = 2 * GLOBAL.ui.inputBorderWidth;
+const cityOptionDateTextSize = GLOBAL.ui.bodyTextSize;
+const cityOptionTimeTextSize = cityOptionHeight - cityOptionDateTextSize - GLOBAL.ui.inputBorderWidth;
 
 function toDMS(coord: number, isLat: boolean) {
 	const deg = Math.floor(Math.abs(coord));
@@ -40,6 +44,190 @@ function toDMS(coord: number, isLat: boolean) {
 
 	return `${deg}° ${min}' ${sec}" ${dir}`;
 }
+
+type CityOptionRowTypes = {
+	key: string,
+	city: GLOBAL.City,
+	index: number,
+	palette: string[],
+	isEditingCities: boolean,
+	activeCityIndex: number,
+	onDeletePress: () => void,
+	onMiddlePress: () => void,
+	onHandlePress: () => void,
+}
+
+const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
+	const middleBtnWidth = useSharedValue(cityOptionMiddleBtnBaseWidth);
+	const middleBtnWidthProgress = useSharedValue(0);
+	useEffect(() => {
+		middleBtnWidth.value = withTiming(
+			(props.index > 0 && props.isEditingCities)
+				? cityOptionMiddleBtnBaseWidth - cityOptionDeleteBtnWidth - cityOptionDragBtnWidth
+				: cityOptionMiddleBtnBaseWidth,
+			{ duration: 1000 * GLOBAL.ui.animDuration }
+		);
+		middleBtnWidthProgress.value = withTiming(
+			(props.index > 0 && props.isEditingCities) ? 1 : 0,
+			{ duration: 1000 * GLOBAL.ui.animDuration }
+		)
+	}, [props.isEditingCities]);
+
+	const cityOptionColorProgress = useSharedValue((props.index == props.activeCityIndex) ? 1 : 0);
+	useEffect(() => {
+		cityOptionColorProgress.value = withTiming(
+			(props.index == props.activeCityIndex) ? 1 : 0,
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+		);
+	}, [props.activeCityIndex]);
+
+	const middleBtnAnimStyle = useAnimatedStyle(() => {
+		return {
+			width: middleBtnWidth.value,
+			marginLeft: middleBtnWidthProgress.value * cityOptionDeleteBtnWidth,
+			backgroundColor: interpolateColor(
+				cityOptionColorProgress.value,
+				[0, 1],
+				[props.palette[2], props.palette[3]]
+			),
+		};
+	});
+
+	const svgAnimProps = useAnimatedProps(() => {
+		return { width: middleBtnWidth.value };
+	});
+
+	const bottomBlobAnimProps = useAnimatedProps(() => {
+		return { width: middleBtnWidth.value };
+	});
+
+	const topBlobAnimProps = useAnimatedProps(() => {
+		return { width: middleBtnWidth.value - (2 * GLOBAL.ui.inputBorderWidth) };
+	});
+
+	return (
+		<View ref={ref} style={[
+			styles.cityOptionRow,
+			{ height: (props.index > 0) ? cityOptionHeight + cityOptionGap : cityOptionHeight }
+		]}>
+			<Pressable
+				style={[
+					styles.cityOptionFuncBtn,
+					{ left: 0, width: cityOptionDeleteBtnWidth }
+				]}
+				onPress={props.onDeletePress}
+			>
+				<Svg
+					width={svgIconDimension}
+					height={svgIconDimension}
+					viewBox="0 0 100 100"
+				>
+					<Path
+						fill="#ff453a"
+						stroke="#ff453a"
+						strokeWidth={2}
+						d="M 49.999512 12.46582 C 30.547566 12.46582 11.096372 24.976111 10.000488 49.999512 C 12.192257 100.04632 87.808231 100.04632 90 49.999512 C 88.904117 24.976111 69.451455 12.46582 49.999512 12.46582 z M 49.999512 14.10791 C 67.259685 14.10791 84.520194 26.071994 83.424316 49.999512 C 85.61608 97.854545 14.384403 97.854545 16.576172 49.999512 C 15.480286 26.071994 32.739336 14.10791 49.999512 14.10791 z M 29.0625 46.999512 L 29.0625 52.999512 C 43.020827 50.999516 56.97966 50.999516 70.937988 52.999512 L 70.937988 46.999512 C 56.97966 48.999514 43.020827 48.999514 29.0625 46.999512 z "
+					/>
+				</Svg>
+			</Pressable>
+
+			<AnimatedPressable
+				style={[styles.cityOptionMiddleBtn, middleBtnAnimStyle]}
+				onPress={props.onMiddlePress}
+			>
+				<AnimatedSvg
+					style={styles.citySvg}
+					height="100%"
+					animatedProps={svgAnimProps}
+				>
+					<Defs>
+						<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
+							<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
+							<Stop offset="100%" stopColor="white" stopOpacity="0" />
+						</LinearGradient>
+
+						<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
+							gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset) - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
+						>
+							<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
+							<Stop offset="100%" stopColor="white" stopOpacity="0" />
+						</RadialGradient>
+
+						<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
+							<Stop offset="0%" stopColor="black" stopOpacity="0" />
+							<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
+						</LinearGradient>
+					</Defs>
+
+					<AnimatedRect
+						fill="url(#bottom-blob)"
+						stroke="url(#stroke)"
+						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+						x={0}
+						y={0}
+						animatedProps={bottomBlobAnimProps}
+						height={cityOptionHeight}
+						rx={GLOBAL.screen.horizOffset}
+					/>
+
+					<AnimatedRect
+						fill="url(#top-blob)"
+						x={GLOBAL.ui.inputBorderWidth}
+						y={GLOBAL.ui.inputBorderWidth}
+						animatedProps={topBlobAnimProps}
+						height={2 * (GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth)}
+						rx={GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth}
+					/>
+				</AnimatedSvg>
+
+				<View style={[styles.cityOptionWrapper, GLOBAL.ui.btnShadowStyle()]}>
+					<View style={styles.cityNameContainer}>
+						<Text
+							style={[styles.cityName, { color: props.palette[0] }]}
+							numberOfLines={1}
+						>{props.city.name}</Text>
+
+						{(props.index == 0) &&
+							<Text
+								style={[styles.youAreHere, { color: GLOBAL.ui.palette[0] }]}
+								numberOfLines={1}
+							>¹ You are here!</Text>
+						}
+
+						<Text style={styles.cityLat}>{toDMS(props.city.lat, true)}</Text>
+						<Text style={styles.cityLon}>{toDMS(props.city.lng, false)}</Text>
+					</View>
+
+					<View style={styles.cityTimeContainer}>
+						<Text style={styles.cityBodyTime}>{props.city.getClockTime()}</Text>
+						<Text style={[styles.cityBodyDate, { color: props.palette[0] }]}>{props.city.getDateShort()}</Text>
+					</View>
+				</View>
+			</AnimatedPressable>
+
+			<Pressable
+				style={[
+					styles.cityOptionFuncBtn,
+					{ right: 0, alignItems: "flex-end", width: cityOptionDragBtnWidth }
+				]}
+				onPressIn={props.onHandlePress}
+			>
+				<Svg
+					width={svgIconDimension}
+					height={svgIconDimension}
+					viewBox="0 0 100 100"
+				>
+					<Path
+						fill={props.palette[2]}
+						stroke={props.palette[2]}
+						strokeWidth={2}
+						d="m 34.001406,10.000001 -8.00164,7.931327 8.00164,8.069612 7.999297,-8.069612 z m 31.999531,0 -7.999297,7.931327 7.999297,8.069612 7.999297,-8.069612 z m -31.999531,31.999532 -8.00164,7.931327 8.00164,8.069609 7.999297,-8.069609 z m 31.999531,0 -7.999297,7.931327 7.999297,8.069609 7.999297,-8.069609 z m -31.999531,32.001875 -8.00164,7.928983 8.00164,8.069607 7.999297,-8.069607 z m 31.999531,0 -7.999297,7.928983 7.999297,8.069607 7.999297,-8.069607 z"
+					/>
+				</Svg>
+			</Pressable>
+		</View>
+	);
+});
 
 
 //* Stylesheet
@@ -86,7 +274,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		width: "100%",
 		height: cityInputHeight,
-		paddingHorizontal: cityPadding,
+		paddingHorizontal: cityOptionPadding,
 		borderColor: GLOBAL.ui.palette[0],
 		borderWidth: GLOBAL.ui.inputBorderWidth,
 		borderRadius: GLOBAL.screen.horizOffset,
@@ -132,28 +320,49 @@ const styles = StyleSheet.create({
 		color: GLOBAL.ui.palette[0],
 	},
 
-	cityScrollContainer: {
+	cityOptionScrollView: {
 		width: "100%",
-		minHeight: GLOBAL.slot.height,
 		paddingTop: 2 * GLOBAL.screen.horizOffset,
 		marginTop: -GLOBAL.screen.horizOffset,
 		overflow: "hidden",
 	},
 
-	city: {
-		height: cityHeight,
-		borderRadius: GLOBAL.screen.horizOffset,
-		overflow: "hidden",
+	cityOptionFlatList: {
+		// marginTop: cityOptionGap,
+		overflow: "visible",
+		zIndex: 999,
 	},
 
-	cityWrapper: {
+	cityOptionRow: {
+		flexDirection: "row",
+		width: "100%",
+	},
+
+	cityOptionFuncBtn: {
+		position: "absolute",
+		bottom: 0,
+		justifyContent: "center",
+		height: cityOptionHeight,
+		zIndex: 999,
+	},
+
+	cityOptionMiddleBtn: {
+		position: "absolute",
+		bottom: 0,
+		height: cityOptionHeight,
+		borderRadius: GLOBAL.screen.horizOffset,
+		overflow: "hidden",
+		zIndex: 1000,
+	},
+
+	cityOptionWrapper: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
 		width: "100%",
 		height: "100%",
-		padding: cityPadding,
-		paddingLeft: 1.2 * cityPadding,
+		padding: cityOptionPadding,
+		paddingLeft: 1.2 * cityOptionPadding,
 	},
 
 	citySvg: {
@@ -197,15 +406,15 @@ const styles = StyleSheet.create({
 	cityBodyTime: {
 		textAlign: "right",
 		fontFamily: "Hades-ShortSkinny",
-		fontSize: cityTimeTextSize - GLOBAL.ui.bodyTextSize,
+		fontSize: cityOptionTimeTextSize - GLOBAL.ui.bodyTextSize,
 		color: GLOBAL.ui.palette[0],
 	},
 
 	cityBodyDate: {
 		textAlign: "right",
 		fontFamily: "Trickster-Reg",
-		fontSize: cityDateTextSize,
-		lineHeight: cityDateTextSize,
+		fontSize: cityOptionDateTextSize,
+		lineHeight: cityOptionDateTextSize,
 	},
 
 	cityScrollSpacer: {
@@ -213,39 +422,37 @@ const styles = StyleSheet.create({
 		width: "100%",
 		height: GLOBAL.slot.ellipseSemiMinor + GLOBAL.slot.shadowRadius,
 	},
+
+	cityOptionEditBtn: {
+		position: "absolute",
+		right: 0,
+		top: GLOBAL.screen.horizOffset,
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 2 * GLOBAL.ui.inputBorderWidth,
+		paddingHorizontal: 5 * GLOBAL.ui.inputBorderWidth,
+		borderWidth: GLOBAL.ui.inputBorderWidth / 2,
+		borderRadius: 3 * GLOBAL.ui.inputBorderWidth,
+	}
 });
 
 
 export default function CitiesScreen() {
 	//* App storage
-	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
 	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
-
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
-
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
 	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
-	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
-
+	const SetSavedCities = GLOBAL.useSaveStore((state) => state.setSavedCities);
+	const DeleteSavedCity = GLOBAL.useSaveStore((state) => state.deleteSavedCity);
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
 	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
-	const ActiveCity = SavedCities[ActiveCityIndex];
-
-	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
-	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
-
-	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
-	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
-
-	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
-	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//* Colors
 	const bodyTextColor = ActiveBody?.palette[0];
-	const activeCityColor = ActiveBody?.palette[2];
-	const inactiveCityColor = ActiveBody?.palette[3];
+	const activeCityColor = ActiveBody?.palette[3];
+	const inactiveCityColor = ActiveBody?.palette[2];
 	const youAreHereColor = GLOBAL.ui.palette[0];
 
 
@@ -275,19 +482,87 @@ export default function CitiesScreen() {
 	};
 
 
-	//* City scrolling
-	const scrollRef = useRef<ScrollView>(null);
+	//* City options
+	const [isEditingCities, setIsEditingCities] = useState<boolean>(false);
+	const [isEditCitiesBtnPressed, setIsEditCitiesBtnPressed] = useState<boolean>(false);
+
+	const initialCityOptionData: CityOptionRowTypes[] = SavedCities.slice(1).map((city, c) => {
+		const newIndex = c + 1;
+		return {
+			key: `city-option-row${newIndex}`,
+			city: city,
+			index: newIndex,
+			palette: ActiveBody!.palette,
+			isEditingCities: isEditingCities,
+			activeCityIndex: ActiveCityIndex,
+			onDeletePress: () => {
+				DeleteSavedCity(newIndex);
+				if (newIndex == ActiveCityIndex) SetActiveCityIndex(0);
+			},
+			onMiddlePress: () => {
+				SetActiveCityIndex(newIndex);
+				setTimeout(() => {
+					SetActiveTab(2);
+					router.replace("/");
+				}, 1000 * GLOBAL.ui.animDuration);
+			},
+			onHandlePress: () => {},
+		};
+	});
+
+	const [cityOptionData, setCityOptionData] = useState<CityOptionRowTypes[]>(initialCityOptionData);
+	useEffect(() => {
+		const updatedData: CityOptionRowTypes[] = SavedCities.slice(1).map((city, c) => {
+			const newIndex = c + 1;
+			return {
+				key: `city-option-row${newIndex}`,
+				city: city,
+				index: newIndex,
+				palette: ActiveBody!.palette,
+				isEditingCities: isEditingCities,
+				activeCityIndex: ActiveCityIndex,
+				onDeletePress: () => {
+					DeleteSavedCity(newIndex);
+					if (newIndex == ActiveCityIndex) SetActiveCityIndex(0);
+				},
+				onMiddlePress: () => {
+					SetActiveCityIndex(newIndex);
+					setTimeout(() => {
+						SetActiveTab(2);
+						router.replace("/");
+					}, 1000 * GLOBAL.ui.animDuration);
+				},
+				onHandlePress: () => {},
+			};
+		});
+
+		setCityOptionData(updatedData);
+	}, [SavedCities]);
+
+	const CityOptionRowItem = ({ item, drag }: RenderItemParams<CityOptionRowTypes>) => {
+		return (
+			<CityOptionRow
+				key={item.key}
+				city={item.city}
+				index={item.index}
+				palette={item.palette}
+				isEditingCities={isEditingCities}
+				activeCityIndex={ActiveCityIndex}
+				onDeletePress={item.onDeletePress}
+				onMiddlePress={item.onMiddlePress}
+				onHandlePress={drag}
+			/>
+		)
+	};
 
 
 	//* Components
 	return (
-		<View style={styles.content}>
+		<GestureHandlerRootView style={styles.content}>
 			<View style={[styles.skewContainer, GLOBAL.ui.skewStyle]}>
 				<Text style={styles.title}>Saved Locations</Text>
 
-				{(isCityInputFocused) &&
-					<View style={styles.focusDarken} pointerEvents="none"></View>
-				}
+				{(isCityInputFocused) && <View style={styles.focusDarken} pointerEvents="none"></View>}
 
 				<View style={styles.citySearchContainer}>
 					<Pressable
@@ -337,7 +612,7 @@ export default function CitiesScreen() {
 										setIsCityInputFocused(false);
 										PushSavedCity(new GLOBAL.City(city.name, city.lat, city.lng));
 										setCityInputValue("");
-										setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
+										// setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
 									}}
 								>
 									<Text style={styles.cityResultText}>{cityNameResults[i]}</Text>
@@ -347,178 +622,98 @@ export default function CitiesScreen() {
 					}
 				</View>
 
-				<ScrollView
-					ref={scrollRef}
-					style={styles.cityScrollContainer}
-					contentContainerStyle={{ alignItems: "center" }}
+				<NestableScrollContainer
+					style={styles.cityOptionScrollView}
 					showsVerticalScrollIndicator={false}
 				>
-					{SavedCities.map((city: GLOBAL.City, i: number) => {
-						const cityPressProgress = useSharedValue((i == ActiveCityIndex) ? 1 : 0);
-						useEffect(() => {
-							cityPressProgress.value = withTiming(
-								(i == ActiveCityIndex) ? 1 : 0,
-								{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
-							);
-						}, [ActiveCityIndex]);
-					
-						const bodyAnimStyle = useAnimatedStyle(() => {
-							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
-								backgroundColor: interpolateColor(
-									cityPressProgress.value,
-									[0, 1],
-									[inactiveCityColor!, activeCityColor!]
-								),
-							};
-						});
+					<CityOptionRow
+						key="city-option-row0"
+						city={SavedCities[0]}
+						index={0}
+						palette={ActiveBody!.palette}
+						isEditingCities={isEditingCities}
+						activeCityIndex={ActiveCityIndex}
+						onDeletePress={() => {}}
+						onMiddlePress={() => {
+							SetActiveCityIndex(0);
+							setTimeout(() => {
+								SetActiveTab(2);
+								router.replace("/");
+							}, 1000 * GLOBAL.ui.animDuration);
+						}}
+						onHandlePress={() => {}}
+					/>
 
-						const svgAnimProps = useAnimatedProps(() => {
-							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
-							};
-						});
-
-						const bottomBlobAnimProps = useAnimatedProps(() => {
-							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff),
-							};
-						});
-
-						const topBlobAnimProps = useAnimatedProps(() => {
-							return {
-								width: cityWidth - ((1 - cityPressProgress.value) * cityWidthDiff) - (2 * GLOBAL.ui.inputBorderWidth),
-							};
-						});
-
-						return (
-							<AnimatedPressable
-								key={`city-${i}`}
-								style={[
-									styles.city,
-									bodyAnimStyle,
-									{ marginTop: (i > 0) ? 2 * GLOBAL.ui.inputBorderWidth : 0 },
-								]}
-								onPress={() => {
-									SetActiveCityIndex(i);
-									setTimeout(() => {
-										SetActiveTab(2);
-										router.replace("/");
-									}, 300);
-								}}
-							>
-								<AnimatedSvg
-									style={styles.citySvg}
-									height="100%"
-									animatedProps={svgAnimProps}
-								>
-									<Defs>
-										<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
-											<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-											<Stop offset="100%" stopColor="white" stopOpacity="0" />
-										</LinearGradient>
-
-										<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
-											gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset) - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
-										>
-											<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-											<Stop offset="100%" stopColor="white" stopOpacity="0" />
-										</RadialGradient>
-
-										<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
-											<Stop offset="0%" stopColor="black" stopOpacity="0" />
-											<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
-										</LinearGradient>
-									</Defs>
-
-									<AnimatedRect
-										fill="url(#bottom-blob)"
-										stroke="url(#stroke)"
-										strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-										x={0}
-										y={0}
-										animatedProps={bottomBlobAnimProps}
-										height={cityHeight}
-										rx={GLOBAL.screen.horizOffset}
-									/>
-
-									<AnimatedRect
-										fill="url(#top-blob)"
-										x={GLOBAL.ui.inputBorderWidth}
-										y={GLOBAL.ui.inputBorderWidth}
-										animatedProps={topBlobAnimProps}
-										height={2 * (GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth)}
-										rx={GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth}
-									/>
-								</AnimatedSvg>
-
-								<View style={[styles.cityWrapper, GLOBAL.ui.btnShadowStyle()]}>
-									<View style={styles.cityNameContainer}>
-										<Text
-											style={[
-												styles.cityName,
-												{ color: bodyTextColor }
-											]}
-											numberOfLines={1}
-										>{city.name}</Text>
-
-										{(i == 0) &&
-											<Text
-												style={[
-													styles.youAreHere,
-													{ color: youAreHereColor }
-												]}
-												numberOfLines={1}
-											>¹ You are here!</Text>
-										}
-
-										<Text style={styles.cityLat}>{toDMS(city.lat, true)}</Text>
-										<Text style={styles.cityLon}>{toDMS(city.lng, false)}</Text>
-									</View>
-
-									<View style={styles.cityTimeContainer}>
-										<Text style={styles.cityBodyTime}>{city.getClockTime()}</Text>
-
-										<Text
-											style={[
-												styles.cityBodyDate,
-												{ color: bodyTextColor }
-											]}
-										>{city.getDateShort()}</Text>
-									</View>
-								</View>
-							</AnimatedPressable>
-						);
-					})}
+					<NestableDraggableFlatList
+						style={styles.cityOptionFlatList}
+						scrollEnabled={false}
+						dragItemOverflow={true}
+						data={cityOptionData}
+						keyExtractor={(item) => item.key}
+						onDragEnd={({ data }) => {
+							setCityOptionData(data);
+							const reorderedCities = data.map(item => item.city);
+							SetSavedCities([SavedCities[0], ...reorderedCities]);
+						}}
+						renderItem={CityOptionRowItem}
+					>
+					</NestableDraggableFlatList>
 
 					<View style={styles.cityScrollSpacer}>
-						<Pressable
-							style={{
-								position: "absolute",
-								right: 0,
-								top: GLOBAL.screen.horizOffset,
-								width: svgIconDimension,
-								height: svgIconDimension,
-							}}
-						>
-							<Svg
-								width={svgIconDimension}
-								height={svgIconDimension}
-								viewBox="0 0 100 100"
+						{(SavedCities.length > 1) && (
+							<Pressable
+								style={[
+									styles.cityOptionEditBtn,
+									{ opacity: (isEditCitiesBtnPressed) ? 0.5 : 1, borderColor: bodyTextColor }
+								]}
+								onPressIn={() => {
+									setIsEditCitiesBtnPressed(true);
+								}}
+								onPress={() => {
+									setIsEditingCities(!isEditingCities);
+								}}
+								onPressOut={() => {
+									setIsEditCitiesBtnPressed(false);
+								}}
 							>
-								<Path
-									fill={bodyTextColor}
-									stroke={bodyTextColor}
-									strokeWidth={3}
-									d="m 49.999512,12.46582 c -19.451965,0 -38.903139,12.510266 -39.999024,37.533692 2.191771,50.046858 77.807741,50.046858 79.999512,0 C 88.904116,24.976086 69.451475,12.46582 49.999512,12.46582 Z m 0,1.64209 c 17.260191,0 34.520683,11.96406 33.424804,35.891602 2.191766,47.855081 -69.039915,47.855081 -66.848144,0 C 15.480285,26.07197 32.739319,14.10791 49.999512,14.10791 Z m -17.692383,30.086426 -5.806641,5.755371 5.806641,5.856445 5.805176,-5.856445 z m 17.692383,0 -5.805176,5.755371 5.805176,5.856445 5.80664,-5.856445 z m 17.693847,0 -5.80664,5.755371 5.80664,5.856445 L 73.5,49.949707 Z"
-								/>
-							</Svg>
-						</Pressable>
+								{(!isEditingCities) && (
+									<Text style={{
+										fontFamily: "Trickster-Reg",
+										fontSize: GLOBAL.ui.bodyTextSize,
+										color: bodyTextColor
+									}}>Edit</Text>
+								)}
+
+								{(!isEditingCities) && (
+									<Svg
+										style={{ marginLeft: GLOBAL.ui.inputBorderWidth }}
+										width={GLOBAL.ui.bodyTextSize}
+										height={GLOBAL.ui.bodyTextSize}
+										viewBox="0 0 100 100"
+									>
+										<Path
+											fill={bodyTextColor}
+											stroke={bodyTextColor}
+											strokeWidth={2}
+											d="M 84.477757,15.523031 C 79.75692,10.802194 73.763482,7.3535015 67.385434,12.724436 c -1.200672,3.16624 -3.188035,5.548363 -5.936551,7.167996 0.360348,0.514964 0.726956,1.023823 1.098549,1.527727 0.371595,0.503903 0.748176,1.002853 1.13025,1.496025 1.618219,-3.014566 4.09507,-5.17272 7.453302,-6.446198 4.86738,-5.87449 8.406841,-2.710324 11.758491,0.641328 3.351654,3.35165 6.515814,6.891114 0.641328,11.75849 -1.273478,3.358233 -3.431633,5.835083 -6.446198,7.453304 0.493263,0.382161 0.99217,0.758695 1.496024,1.130248 0.50385,0.371559 1.012661,0.738124 1.527726,1.098548 1.619635,-2.748511 4.001758,-4.735876 7.167992,-5.936549 5.370889,-6.378106 1.92224,-12.371489 -2.79859,-17.092324 z m -4.369402,23.028873 c -0.515061,-0.360429 -1.023871,-0.726995 -1.527726,-1.098548 -0.503859,-0.371548 -1.002758,-0.74809 -1.496024,-1.130248 -5.036466,-3.901992 -9.505001,-8.370385 -13.406923,-13.406924 -0.382072,-0.493172 -0.758655,-0.992122 -1.13025,-1.496025 -0.371593,-0.503903 -0.738199,-1.012765 -1.098549,-1.527727 -0.743153,0.437925 -1.531198,0.831213 -2.3873,1.155854 -0.560922,0.671275 -1.137488,1.327073 -1.703297,1.993482 0.690827,0.474596 1.368771,0.962323 2.037374,1.459448 0.668601,0.497123 1.327866,1.003646 1.980069,1.516752 4.704329,3.701014 8.906029,7.902818 12.607092,12.607092 0.5132,0.652301 1.019671,1.31152 1.516753,1.980069 0.49708,0.668549 0.984774,1.346434 1.459448,2.037375 0.666406,-0.56581 1.322205,-1.142376 1.99348,-1.703299 0.324642,-0.856098 0.717929,-1.644146 1.155853,-2.387301 z m -3.149333,4.0906 C 76.484348,41.951563 75.996654,41.273678 75.499574,40.605129 75.002492,39.93658 74.496018,39.277363 73.982821,38.62506 61.816183,53.019009 48.523568,66.290969 34.091254,78.419093 28.264646,81.047745 22.229475,82.909214 15.99142,84.006937 17.089699,77.769127 18.953812,71.734655 21.582918,65.908318 33.710752,51.476491 46.982209,38.184245 61.375729,26.017968 60.723523,25.504863 60.064261,24.998339 59.39566,24.501216 58.727057,24.004091 58.049113,23.516364 57.358286,23.041768 45.121128,37.454645 31.754426,50.742114 17.236275,62.873594 16.509666,72.364504 14.094942,81.40988 9.9999998,89.998348 l 0.0013,8.89e-4 c 8.588797,-4.095387 17.633329,-6.509652 27.124725,-7.236308 l 0.0013,0.0013 C 49.258617,68.246302 62.546143,54.879658 76.959022,42.642504 Z M 63.442365,23.368527 c -0.07695,0.152088 -0.152486,0.306156 -0.225562,0.462098 -0.07308,0.155943 -0.143732,0.312486 -0.212149,0.473071 -0.06842,0.160589 -0.134561,0.324114 -0.19752,0.49014 -0.241073,0.201452 -0.478071,0.405857 -0.715704,0.610844 0.237625,-0.204995 0.474623,-0.409401 0.715704,-0.610844 0.06296,-0.166024 0.129101,-0.329553 0.19752,-0.49014 0.06842,-0.160588 0.139072,-0.317131 0.212149,-0.473071 0.07308,-0.155942 0.148619,-0.31001 0.225562,-0.462098 z m 13.189897,13.189896 c -0.152088,0.07695 -0.306155,0.152488 -0.462099,0.225562 -0.155942,0.07308 -0.312485,0.143733 -0.473071,0.21215 -0.160589,0.06842 -0.324112,0.134562 -0.490141,0.197519 -0.201449,0.241087 -0.405851,0.478084 -0.610844,0.715704 0.204993,-0.23762 0.409395,-0.474617 0.610844,-0.715704 0.166024,-0.06296 0.329556,-0.1291 0.490141,-0.197519 0.160589,-0.06842 0.31713,-0.139072 0.473071,-0.21215 0.155944,-0.07308 0.310011,-0.148617 0.462099,-0.225562 z"
+										/>
+									</Svg>
+								)}
+
+								{(isEditingCities) && (
+									<Text style={{
+										fontFamily: "Trickster-Reg",
+										fontSize: GLOBAL.ui.bodyTextSize,
+										color: bodyTextColor
+									}}>Done</Text>
+								)}
+							</Pressable>
+						)}
 					</View>
-				</ScrollView>
+				</NestableScrollContainer>
 			</View>
 
 			<SlotBottomShadow />
-		</View>
+		</GestureHandlerRootView>
 	);
 }

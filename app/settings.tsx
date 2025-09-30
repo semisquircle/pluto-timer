@@ -219,7 +219,6 @@ export default function SettingsScreen() {
 	const subTitleColor = { color: ActiveBody?.palette[0] };
 	const inputOffColor = ActiveBody?.palette[3];
 	const btnBgColor = ActiveBody?.palette[2];
-	const [isRestoreBtnPressed, setIsRestoreBtnPressed] = useState(false);
 
 
 	//* Scrolling
@@ -250,6 +249,11 @@ export default function SettingsScreen() {
 				+ (timeFormatProgress.value * ((timeFormatContainerWidth / 2) - GLOBAL.ui.inputBorderWidth))
 		};
 	});
+
+
+	//* Restore button
+	const [isRestoreBtnPressed, setIsRestoreBtnPressed] = useState(false);
+	const [isRestoreBtnActive, setIsRestoreBtnActive] = useState(false);
 
 
 	//* Components
@@ -469,7 +473,7 @@ export default function SettingsScreen() {
 
 								<Switch
 									trackColor={{ false: inputOffColor, true: ActiveBody?.palette[2] }}
-									ios_backgroundColor={ActiveBody?.palette[4]}
+									ios_backgroundColor={inputOffColor}
 									thumbColor={
 										NotifReminders[o]
 											? GLOBAL.ui.palette[0]
@@ -728,7 +732,7 @@ export default function SettingsScreen() {
 							width: restoreBtnWidth,
 							height: restoreBtnHeight,
 							marginTop: (2.5 * GLOBAL.screen.horizOffset) + (0.6 * GLOBAL.ui.bodyTextSize),
-							backgroundColor: (isRestoreBtnPressed) ? ActiveBody?.palette[3] : btnBgColor,
+							backgroundColor: (isRestoreBtnPressed || isRestoreBtnActive) ? ActiveBody?.palette[3] : btnBgColor,
 							borderRadius: restoreBtnBorderRadius,
 							overflow: "hidden",
 						}}
@@ -736,6 +740,7 @@ export default function SettingsScreen() {
 							setIsRestoreBtnPressed(true);
 						}}
 						onPress={() => {
+							setIsRestoreBtnActive(true);
 							Alert.alert(
 								"Do you want to restore all settings to default?",
 								"This includes saved locations and your current planet/moon of choice.",
@@ -743,7 +748,9 @@ export default function SettingsScreen() {
 									{
 										text: "Cancel",
 										style: "cancel",
-										onPress: () => setIsRestoreBtnPressed(false)
+										onPress: () => {
+											setIsRestoreBtnActive(false);
+										}
 									},
 									{
 										text: "Sure",
@@ -751,11 +758,14 @@ export default function SettingsScreen() {
 										onPress: () => {
 											WriteDefaultSaveToFile();
 											LoadSave();
-											setIsRestoreBtnPressed(false);
+											setIsRestoreBtnActive(false);
 										}
 									},
 								]
 							);
+						}}
+						onPressOut={() => {
+							setIsRestoreBtnPressed(false);
 						}}
 					>
 						<Svg

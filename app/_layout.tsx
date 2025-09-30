@@ -126,20 +126,20 @@ const styles = StyleSheet.create({
 export default function Layout() {
 	//* App storage
 	const InitDefaultSaveData = GLOBAL.useSaveStore((state) => state.initDefaultSaveData);
+	const WriteDefaultSaveToFile = GLOBAL.useSaveStore((state) => state.writeDefaultSaveToFile);
 	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
 	const IsSaveLoaded = GLOBAL.useSaveStore((state) => state.isSaveLoaded);
 	useEffect(() => {
+		// router.replace(tabArray[2].href);
 		InitDefaultSaveData();
-		LoadSave();
+		WriteDefaultSaveToFile();
+		// LoadSave();
 	}, []);
 
 	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
 	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
-
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const PushSavedCity = GLOBAL.useSaveStore((state) => state.pushSavedCity);
 	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
 
 
