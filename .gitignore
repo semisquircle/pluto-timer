@@ -50,3 +50,5 @@ python/
 **/*.gd
 **/uncompressed
 **/bodies-originals
+assets/fonts/Trickster/svg
+**/*.sfd

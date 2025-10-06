@@ -1,10 +1,10 @@
 import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow, SlotTopShadow } from "@/ref/slot-shadows";
-import { AllBodies, CelestialBody, SolarSystem } from "@/ref/solar-system";
+import { AllBodies, CelestialBody, CelestialSystem, SolarSystem } from "@/ref/solar-system";
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { Easing, SharedValue, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { withPause } from "react-native-redash";
 import { Circle, ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
@@ -17,7 +17,7 @@ const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 //* BOI popup
 const boiPopupOffset = GLOBAL.screen.horizOffset;
 const boiPopupWidth = GLOBAL.slot.width - 2 * boiPopupOffset;
-const boiPopupHeight = 0.6 * GLOBAL.slot.width;
+const boiPopupHeight = 0.7 * GLOBAL.slot.width;
 const boiPopupBorderRadius = GLOBAL.slot.borderRadius;
 const boiPopupPadding = 3 * GLOBAL.ui.inputBorderWidth;
 
@@ -45,74 +45,80 @@ const systemNameTextOffset = GLOBAL.screen.horizOffset;
 const systemNameTextSize = 0.8 * GLOBAL.ui.bodyTextSize;
 const systemNameTextDescent = 0.15 * systemNameTextSize;
 
-const systemSpacing = 0.2 * GLOBAL.slot.width;
+const systemSpacing = 0.15 * GLOBAL.slot.width;
 const moonDiameter = 0.16 * GLOBAL.slot.width;
 const moonOffset = (GLOBAL.slot.width - centerBodyDiameter - (2 * moonDiameter)) / 4;
 const systemDiameter = centerBodyDiameter + (2 * moonOffset) + (2 * moonDiameter);
+const systemMoonlessOffset = systemNameTextOffset + systemNameTextSize - systemNameTextDescent;
 
 const notToScaleTextOffset = GLOBAL.screen.horizOffset;
 const notToScaleTextSize = GLOBAL.ui.bodyTextSize;
 
+const systemScrollSpacerHeight = boiPopupHeight + (2 * boiPopupOffset);
 
-//* Body button
-interface bodyBtnTypes {
+type BodyBtnTypes = {
+	style?: any,
 	body: any,
 	diameter: number,
 	isInterested: boolean,
 	onPress: () => void,
 	onDisplay: () => void,
 }
-function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnTypes) {
+
+const BodyBtn = (props: BodyBtnTypes) => {
 	const [isImgDisplayed, setIsImgDisplayed] = useState<boolean>(false);
-	const newDiameter = (body.hasRings) ? 2 * diameter : diameter;
+	const newDiameter = (props.body.hasRings) ? 2 * props.diameter : props.diameter;
 
 	const bodyInterestProgress = useSharedValue(0);
 	useEffect(() => {
 		bodyInterestProgress.value = withTiming(
-			(isInterested) ? 1 : 0,
+			(props.isInterested) ? 1 : 0,
 			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.inOut(Easing.cubic) }
 		);
-	}, [isInterested]);
+	}, [props.isInterested]);
 
 	const bodyAnimProps = useAnimatedProps(() => {
 		return { strokeWidth: bodyInterestProgress.value * (2 * GLOBAL.ui.inputBorderWidth) }
 	});
 
 	return (
-		<View style={{
-			position: "absolute",
-			justifyContent: "center",
-			alignItems: "center",
-			width: diameter + (2 * GLOBAL.ui.inputBorderWidth),
-			height: diameter + (2 * GLOBAL.ui.inputBorderWidth),
-		}}>
+		<View style={[
+			{
+				position: "absolute",
+				justifyContent: "center",
+				alignItems: "center",
+				width: props.diameter + (2 * GLOBAL.ui.inputBorderWidth),
+				height: props.diameter + (2 * GLOBAL.ui.inputBorderWidth),
+			},
+			props.style
+		]}>
 			<AnimatedPressable
 				style={{
 					position: "absolute",
 					justifyContent: "center",
 					alignItems: "center",
-					width: (body.scale.x * diameter) + (2 * GLOBAL.ui.inputBorderWidth),
-					height: (body.scale.y * diameter) + (2 * GLOBAL.ui.inputBorderWidth),
+					width: (props.body.scale.x * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth),
+					height: (props.body.scale.y * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth),
 				}}
-				onPress={onPress}
+				onPress={props.onPress}
 			>
 				<Svg
 					style={GLOBAL.ui.btnShadowStyle()}
 					width="100%"
 					height="100%"
 					viewBox={`0 0
-						${(body.scale.x * diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
-						${(body.scale.y * diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
+						${(props.body.scale.x * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
+						${(props.body.scale.y * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
 					`}
 				>
 					<AnimatedEllipse
-						fill={body.palette[2]}
+						fill={props.body.palette[2]}
 						stroke={GLOBAL.ui.palette[0]}
 						animatedProps={bodyAnimProps}
-						cx={(body.scale.x * diameter) / 2 + GLOBAL.ui.inputBorderWidth}
-						cy={(body.scale.y * diameter) / 2 + GLOBAL.ui.inputBorderWidth}
-						rx={(body.scale.x * diameter) / 2}
-						ry={(body.scale.y * diameter) / 2}
+						cx={(props.body.scale.x * props.diameter) / 2 + GLOBAL.ui.inputBorderWidth}
+						cy={(props.body.scale.y * props.diameter) / 2 + GLOBAL.ui.inputBorderWidth}
+						rx={(props.body.scale.x * props.diameter) / 2}
+						ry={(props.body.scale.y * props.diameter) / 2}
 					/>
 				</Svg>
 			</AnimatedPressable>
@@ -120,18 +126,160 @@ function BodyBtn({ body, diameter, isInterested, onPress, onDisplay }: bodyBtnTy
 			<ExpoImage
 				style={{
 					position: "absolute",
-					width: body.scale.x * newDiameter,
-					height: body.scale.y * newDiameter,
+					width: props.body.scale.x * newDiameter,
+					height: props.body.scale.y * newDiameter,
 					marginBottom: 0.4,
 				}}
-				source={body.thumbnail}
+				source={props.body.thumbnail}
 				contentFit="fill"
 				onDisplay={() => {
 					setIsImgDisplayed(true);
-					onDisplay();
+					props.onDisplay();
 				}}
 				pointerEvents="none"
 			/>
+		</View>
+	);
+}
+
+type SystemTypes = {
+	system: CelestialSystem,
+	index: number,
+	boi: CelestialBody | null,
+	setBoi: React.Dispatch<React.SetStateAction<CelestialBody | null>>,
+	isBodyInterested: boolean,
+	setIsBodyInterested: React.Dispatch<React.SetStateAction<boolean>>,
+	orbitRot: SharedValue<number>,
+	setNumBodyImgsLoaded: React.Dispatch<React.SetStateAction<number>>,
+	isAnimPaused: SharedValue<boolean>,
+}
+
+const SystemItem = (props: SystemTypes) => {
+	const numSatellites = props.system.moons.length;
+	const systemNameTextMajorAxis = (props.system.parent.scale.x * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
+	const systemNameTextMinorAxis = (props.system.parent.scale.y * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
+
+	return (
+		<View style={[
+			styles.system,
+			{
+				height: (numSatellites == 0) ? centerBodyDiameter + systemMoonlessOffset : systemDiameter,
+				marginTop: systemSpacing,
+			}
+		]}>
+			<BodyBtn
+				style={{ transform: [{ translateY: (numSatellites == 0) ? systemMoonlessOffset / 2 : 0 }] }}
+				body={props.system.parent}
+				diameter={centerBodyDiameter}
+				isInterested={props.boi?.name == props.system.parent.name && props.isBodyInterested}
+				onPress={() => {
+					props.setBoi(props.system.parent);
+					props.setIsBodyInterested(true);
+					props.isAnimPaused.value = true;
+				}}
+				onDisplay={() => {
+					props.setNumBodyImgsLoaded(prev => prev + 1);
+				}}
+			/>
+
+			<View
+				style={{
+					position: "absolute",
+					transform: [{ translateY: (numSatellites == 0) ? systemMoonlessOffset / 2 : 0 }],
+				}}
+				pointerEvents="none"
+			>
+				<Svg
+					width={systemNameTextMajorAxis}
+					height={systemNameTextMinorAxis}
+					viewBox={`0 0 ${systemNameTextMajorAxis} ${systemNameTextMinorAxis}`}
+				>
+					<Defs>
+						<Ellipse
+							id="system-name-path"
+							rx={((props.system.parent.scale.x * centerBodyDiameter) / 2) + systemNameTextOffset}
+							ry={((props.system.parent.scale.y * centerBodyDiameter) / 2) + systemNameTextOffset}
+							cx={systemNameTextMajorAxis / 2}
+							cy={systemNameTextMinorAxis / 2}
+						/>
+
+						<Path
+							id="system-system-path"
+							d={`
+								M ${systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+								A ${(systemNameTextMajorAxis / 2) - systemNameTextDescent} ${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+									0 0 0 ${systemNameTextMajorAxis - systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
+							`}
+						/>
+					</Defs>
+
+					<SvgText
+						fill={GLOBAL.ui.palette[0]}
+						fontFamily="Trickster-Reg-Semi"
+						fontSize={systemNameTextSize}
+						letterSpacing="0"
+						textAnchor="middle"
+					>
+						<TextPath href="#system-name-path" startOffset="74.5%">
+							<TSpan>{props.system.name}</TSpan>
+						</TextPath>
+					</SvgText>
+
+					{(numSatellites > 0) &&
+						<SvgText
+							fill={GLOBAL.ui.palette[0]}
+							fontFamily="Trickster-Reg-Semi"
+							fontSize={systemNameTextSize}
+							letterSpacing="1"
+							textAnchor="middle"
+						>
+							<TextPath href="#system-system-path" startOffset="50%">
+								<TSpan>System</TSpan>
+							</TextPath>
+						</SvgText>
+					}
+				</Svg>
+			</View>
+
+			{props.system.moons.map((moon, moonIndex) => {
+				const theta = (moonIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);
+				const moonAnimStyle = useAnimatedStyle(() => {
+					const angle = (props.orbitRot.value * (Math.PI / 180)) + theta;
+					const x = (systemDiameter - moonDiameter) * Math.cos(angle) / 2;
+					const y = (systemDiameter - moonDiameter) * Math.sin(angle) / 2;
+					return { transform: [{ translateX: x }, { translateY: y }] };
+				});
+
+				return (
+					<Animated.View
+						key={`moon-${moonIndex}`}
+						style={[
+							{
+								position: "absolute",
+								justifyContent: "center",
+								alignItems: "center",
+								width: (moon.scale.x * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
+								height: (moon.scale.y * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
+							},
+							moonAnimStyle
+						]}
+					>
+						<BodyBtn
+							body={moon}
+							diameter={moonDiameter}
+							isInterested={props.boi?.name == moon.name && props.isBodyInterested}
+							onPress={() => {
+								props.setBoi(moon);
+								props.setIsBodyInterested(true);
+								props.isAnimPaused.value = true;
+							}}
+							onDisplay={() => {
+								props.setNumBodyImgsLoaded(prev => prev + 1);
+							}}
+						/>
+					</Animated.View>
+				);
+			})}
 		</View>
 	);
 }
@@ -146,16 +294,12 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 
-	bodyScrollContainer: {
-		width: "100%",
-		height: "100%",
-	},
-
 	solSpacer: {
 		justifyContent: "center",
 		alignItems: "center",
 		width: solDiameter,
-		height: solDiameter / 2,
+		height: solDiameter,
+		marginTop: -solDiameter / 2,
 	},
 
 	solContainer: {
@@ -164,7 +308,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		width: solFrameDimension,
 		height: solFrameDimension,
-		marginTop: -solFrameDimension / 2,
 		overflow: "hidden",
 	},
 
@@ -202,9 +345,10 @@ const styles = StyleSheet.create({
 		overflow: "visible",
 	},
 
-	bodyScrollSpacer: {
+	systemScrollSpacer: {
 		width: "100%",
-		height: boiPopupHeight + (2 * boiPopupOffset) + GLOBAL.ui.inputBorderWidth,
+		height: systemScrollSpacerHeight,
+		backgroundColor: "red",
 	},
 
 	boiPopup: {
@@ -254,10 +398,9 @@ const styles = StyleSheet.create({
 	},
 
 	boiPopupUseBtnText: {
-		fontFamily: "Trickster-Reg",
+		fontFamily: "Trickster-Reg-Semi",
 		fontSize: GLOBAL.ui.bodyTextSize,
-		marginBottom: 0.5 * GLOBAL.ui.bodyTextSize,
-		color: GLOBAL.ui.palette[0],
+		marginBottom: 0.6 * GLOBAL.ui.bodyTextSize,
 	},
 });
 
@@ -267,6 +410,7 @@ export default function BodiesScreen() {
 	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
+	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
 
 
 	//* Colors
@@ -303,7 +447,7 @@ export default function BodiesScreen() {
 			solFrameSV.value = withPause(
 				withRepeat(withTiming(
 					totalSolFrames - 1,
-					{ duration: 1000 / solAnimFPS * totalSolFrames, easing: Easing.linear }),
+					{ duration: (1000 / solAnimFPS) * totalSolFrames, easing: Easing.linear }),
 					-1,
 					false
 				),
@@ -319,14 +463,6 @@ export default function BodiesScreen() {
 			top: -Math.floor(solFrameInt / solFrameWidth) * solFrameDimension,
 		};
 	});
-
-
-	//* Systems
-	const [numBodyImgsLoaded, setNumBodyImgsLoaded] = useState<number>(0);
-	const [areAllBodyImgsLoaded, setAreAllBodyImgsLoaded] = useState<boolean>(false);
-	useEffect(() => {
-		if (numBodyImgsLoaded == AllBodies.length) setAreAllBodyImgsLoaded(true);
-	}, [numBodyImgsLoaded]);
 
 
 	//* Orbit animation
@@ -345,199 +481,90 @@ export default function BodiesScreen() {
 	}, [isAnimPaused]);
 
 
+	//* Systems
+	const [numBodyImgsLoaded, setNumBodyImgsLoaded] = useState<number>(0);
+	const [areAllBodyImgsLoaded, setAreAllBodyImgsLoaded] = useState<boolean>(false);
+	useEffect(() => {
+		if (numBodyImgsLoaded == (AllBodies.length - 1)) setAreAllBodyImgsLoaded(true);
+	}, [numBodyImgsLoaded]);
+
+	const initialSystemData: SystemTypes[] = SolarSystem.slice(1).map((system, s) => {
+		return {
+			system: system,
+			index: s,
+			boi: boi,
+			setBoi: setBoi,
+			isBodyInterested: isBodyInterested,
+			setIsBodyInterested: setIsBodyInterested,
+			orbitRot: orbitRot,
+			setNumBodyImgsLoaded: setNumBodyImgsLoaded,
+			isAnimPaused: isAnimPaused,
+		}
+	});
+
+
 	//* Components
 	return (
 		<View style={styles.content}>
-			<ScrollView
-				style={styles.bodyScrollContainer}
-				contentContainerStyle={{ alignItems: "center" }}
+			<FlatList
 				showsVerticalScrollIndicator={false}
-			>
-				<View style={styles.solSpacer}></View>
-				<View style={styles.solContainer}>
-					{(!isSolPlaceholderImgDisplayed) &&
-						<View style={styles.solPlaceholder}></View>
-					}
+				contentContainerStyle={{ alignItems: "center" }}
+				ListHeaderComponent={
+					<View style={styles.solSpacer}>
+						<View style={styles.solContainer}>
+							{(!isSolPlaceholderImgDisplayed) &&
+								<View style={styles.solPlaceholder}></View>
+							}
 
-					{(!isSolSpriteSheetDisplayed) &&
-						<ExpoImage
-							style={styles.solPlaceholderImg}
-							source={require("../assets/images/bodies/thumbnails/Sol.png")}
-							contentFit="fill"
-							onDisplay={() => {
-								setIsSolPlaceholderImgDisplayed(true);
-							}}
-						/>
-					}
+							{(!isSolSpriteSheetDisplayed) &&
+								<ExpoImage
+									style={styles.solPlaceholderImg}
+									source={sol.thumbnail}
+									contentFit="fill"
+									onDisplay={() => {
+										setIsSolPlaceholderImgDisplayed(true);
+									}}
+								/>
+							}
 
-					{(areAllBodyImgsLoaded) &&
-						<Animated.View style={[styles.solSpriteSheet, solAnimStyle]}>
-							<ExpoImage
-								style={styles.solSpriteSheetImg}
-								source={require("../assets/images/bodies/sprite-sheets/Sol.png")}
-								onDisplay={() => {
-									setIsSolSpriteSheetDisplayed(true);
-								}}
-							/>
-						</Animated.View>
-					}
-				</View>
-
-				{SolarSystem.slice(1).map((system, systemIndex) => {
-					const numSatellites = system.moons.length;
-					const systemHeight = (numSatellites == 0) ? centerBodyDiameter : systemDiameter;
-					const systemMargin = (systemIndex == 0) ? systemSpacing + systemNameTextOffset + systemNameTextSize : systemSpacing;
-					const systemNameTextMajorAxis = (system.parent.scale.x * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
-					const systemNameTextMinorAxis = (system.parent.scale.y * centerBodyDiameter) + (2 * systemNameTextOffset) + (2 * systemNameTextSize);
-
-					return (
-						<View
-							key={`system-${systemIndex}`}
-							style={[styles.system, {
-								height: systemHeight,
-								marginTop: systemMargin,
-							}]}
-						>
-							<BodyBtn
-								body={system.parent}
-								diameter={centerBodyDiameter}
-								isInterested={boi?.name == system.parent.name && isBodyInterested}
-								onPress={() => {
-									setBoi(system.parent);
-									setIsBodyInterested(true);
-									isAnimPaused.value = true;
-								}}
-								onDisplay={() => {
-									setNumBodyImgsLoaded(prev => prev + 1);
-								}}
-							/>
-
-							<View
-								style={{
-									position: "absolute",
-									// transform: [{ rotate: system.parent.axialTilt + "deg" }]
-								}}
-								pointerEvents="none"
-							>
-								<Svg
-									width={systemNameTextMajorAxis}
-									height={systemNameTextMinorAxis}
-									viewBox={`0 0 ${systemNameTextMajorAxis} ${systemNameTextMinorAxis}`}
-								>
-									<Defs>
-										<Ellipse
-											id="system-name-path"
-											rx={((system.parent.scale.x * centerBodyDiameter) / 2) + systemNameTextOffset}
-											ry={((system.parent.scale.y * centerBodyDiameter) / 2) + systemNameTextOffset}
-											cx={systemNameTextMajorAxis / 2}
-											cy={systemNameTextMinorAxis / 2}
-										/>
-
-										<Path
-											id="system-system-path"
-											d={`
-												M ${systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-												A ${(systemNameTextMajorAxis / 2) - systemNameTextDescent} ${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-													0 0 0 ${systemNameTextMajorAxis - systemNameTextDescent},${(systemNameTextMinorAxis / 2) - systemNameTextDescent}
-											`}
-										/>
-									</Defs>
-
-									<SvgText
-										fill={GLOBAL.ui.palette[0]}
-										fontFamily="Trickster-Reg"
-										fontSize={systemNameTextSize}
-										letterSpacing="0"
-										textAnchor="middle"
-									>
-										<TextPath href="#system-name-path" startOffset="74.5%">
-											<TSpan>{system.name}</TSpan>
-										</TextPath>
-									</SvgText>
-
-									{(numSatellites > 0) &&
-										<SvgText
-											fill={GLOBAL.ui.palette[0]}
-											fontFamily="Trickster-Reg"
-											fontSize={systemNameTextSize}
-											letterSpacing="1"
-											textAnchor="middle"
-										>
-											<TextPath href="#system-system-path" startOffset="50%">
-												<TSpan>System</TSpan>
-											</TextPath>
-										</SvgText>
-									}
-								</Svg>
-							</View>
-
-							{system.moons.map((moon, moonIndex) => {
-								const theta = (moonIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);
-								const moonAnimStyle = useAnimatedStyle(() => {
-									const angle = (orbitRot.value * (Math.PI / 180)) + theta;
-									const x = (systemDiameter - moonDiameter) * Math.cos(angle) / 2;
-									const y = (systemDiameter - moonDiameter) * Math.sin(angle) / 2;
-									return { transform: [{ translateX: x }, { translateY: y }] };
-								});
-
-								return (
-									<Animated.View
-										key={`moon-${moonIndex}`}
-										style={[
-											{
-												position: "absolute",
-												justifyContent: "center",
-												alignItems: "center",
-												width: (moon.scale.x * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
-												height: (moon.scale.y * moonDiameter) + (2 * GLOBAL.ui.inputBorderWidth),
-											},
-											moonAnimStyle
-										]}
-									>
-										<BodyBtn
-											body={moon}
-											diameter={moonDiameter}
-											isInterested={boi?.name == moon.name && isBodyInterested}
-											onPress={() => {
-												setBoi(moon);
-												setIsBodyInterested(true);
-												isAnimPaused.value = true;
-											}}
-											onDisplay={() => {
-												setNumBodyImgsLoaded(prev => prev + 1);
-											}}
-										/>
-									</Animated.View>
-								);
-							})}
+							{(areAllBodyImgsLoaded) &&
+								<Animated.View style={[styles.solSpriteSheet, solAnimStyle]}>
+									<ExpoImage
+										style={styles.solSpriteSheetImg}
+										source={sol.spriteSheet}
+										onDisplay={() => {
+											setIsSolSpriteSheetDisplayed(true);
+										}}
+									/>
+								</Animated.View>
+							}
 						</View>
-					);
-				})}
-
-				<View style={styles.bodyScrollSpacer} pointerEvents="none">
+					</View>
+				}
+				data={initialSystemData}
+				keyExtractor={item => `system${item.index}`}
+				renderItem={({ item }) => <SystemItem {...item} />}
+				ListFooterComponent={
 					<Svg
-						style={{
-							position: "absolute",
-							bottom: -(notToScaleTextOffset + notToScaleTextSize),
-						}}
+						// style={{ bottom: -(notToScaleTextOffset + notToScaleTextSize) }}
 						width={GLOBAL.slot.width}
-						height={GLOBAL.slot.height}
-						viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}
+						height={systemScrollSpacerHeight}
+						viewBox={`0 0 ${GLOBAL.slot.width} ${systemScrollSpacerHeight}`}
 					>
 						<Defs>
 							<Path
 								id="not-to-scale-path"
 								d={`
-									M ${notToScaleTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+									M ${notToScaleTextOffset},${systemScrollSpacerHeight - GLOBAL.slot.ellipseSemiMinor}
 									A ${GLOBAL.slot.ellipseSemiMajor - notToScaleTextOffset} ${GLOBAL.slot.ellipseSemiMinor - notToScaleTextOffset}
-										0 0 0 ${GLOBAL.slot.width - notToScaleTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+										0 0 0 ${GLOBAL.slot.width - notToScaleTextOffset},${systemScrollSpacerHeight - GLOBAL.slot.ellipseSemiMinor}
 								`}
 							/>
 						</Defs>
 
 						<SvgText
 							fill={ActiveBody?.palette[0]}
-							fontFamily="Trickster-Reg"
+							fontFamily="Trickster-Reg-Semi"
 							fontSize={notToScaleTextSize}
 							letterSpacing="1"
 							textAnchor="middle"
@@ -547,8 +574,8 @@ export default function BodiesScreen() {
 							</TextPath>
 						</SvgText>
 					</Svg>
-				</View>
-			</ScrollView>
+				}
+			/>
 
 			<SlotTopShadow />
 			<SlotBottomShadow />
@@ -622,6 +649,14 @@ export default function BodiesScreen() {
 									cy={boiPopupCloseBtnDimension / 2}
 								/>
 							</ClipPath>
+
+							<ClipPath id="btn-clip">
+								<Circle
+									r={boiPopupCloseBtnDimension / 2}
+									cx={boiPopupCloseBtnDimension / 2}
+									cy={boiPopupCloseBtnDimension / 2}
+								/>
+							</ClipPath>
 						</Defs>
 
 						<Circle
@@ -629,8 +664,6 @@ export default function BodiesScreen() {
 							cx={boiPopupCloseBtnDimension / 2}
 							cy={boiPopupCloseBtnDimension / 2}
 							fill="url(#bottom-blob)"
-							stroke="url(#stroke)"
-							strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
 							clipPath="url(#top-blob-clip)"
 						/>
 
@@ -641,6 +674,16 @@ export default function BodiesScreen() {
 							cy={GLOBAL.ui.inputBorderWidth + ((boiPopupCloseBtnDimension / 2) - GLOBAL.ui.inputBorderWidth) / 2}
 							fill="url(#top-blob)"
 							clipPath="url(#top-blob-clip)"
+						/>
+
+						<Circle
+							r={boiPopupCloseBtnDimension / 2}
+							cx={boiPopupCloseBtnDimension / 2}
+							cy={boiPopupCloseBtnDimension / 2}
+							fill="transparent"
+							stroke="url(#stroke)"
+							strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+							clipPath="url(#btn-clip)"
 						/>
 					</Svg>
 
@@ -661,7 +704,7 @@ export default function BodiesScreen() {
 					<Svg
 						style={[
 							styles.boiPopupUseBtnSvg,
-							(!isBoiPopupUseBtnPressed) && GLOBAL.ui.btnShadowStyle(),
+							(boi?.canUse && !isBoiPopupUseBtnPressed) && GLOBAL.ui.btnShadowStyle(),
 						]}
 						width="100%"
 						height="100%"
@@ -681,11 +724,11 @@ export default function BodiesScreen() {
 							</RadialGradient>
 
 							<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
-								<Stop offset="0%" stopColor="black" stopOpacity="0" />
-								<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
+								<Stop offset="0%" stopColor={(boi?.canUse) ? "black" : boi?.palette[1]} stopOpacity={(boi?.canUse) ? "0" : "1"} />
+								<Stop offset="100%" stopColor={(boi?.canUse) ? "black" : boi?.palette[1]} stopOpacity={(boi?.canUse) ? "0.7" : "1"} />
 							</LinearGradient>
 
-							<ClipPath id="btn-outline">
+							<ClipPath id="btn-clip">
 								<Path
 									fill="transparent"
 									d={`
@@ -703,12 +746,11 @@ export default function BodiesScreen() {
 							</ClipPath>
 						</Defs>
 
-
 						<Path
 							fill={
 								(boi?.canUse)
-								? (isBoiPopupUseBtnPressed) ? btnPressedBgColor : btnBgColor
-								: "#777"
+								? (isBoiPopupUseBtnPressed) ? boi?.palette[3] : boi?.palette[2]
+								: "transparent"
 							}
 							d={`
 								M 0,${boiPopupUseBtnBorderRadius}
@@ -738,7 +780,7 @@ export default function BodiesScreen() {
 								q ${-boiPopupUseBtnBorderRadius},0 ${-boiPopupUseBtnBorderRadius},${boiPopupUseBtnBorderRadius}
 								z
 							`}
-							clipPath="url(#btn-outline)"
+							clipPath="url(#btn-clip)"
 						/>
 
 						<Rect
@@ -769,10 +811,10 @@ export default function BodiesScreen() {
 							onPress={() => {
 								if (boi?.canUse) {
 									SetActiveBody(boi?.name);
+									SavedCities.map(city => city.setNextBodyTime(boi));
+									WriteNewSaveToFile();
 									setIsBodyInterested(false);
 									isAnimPaused.value = false;
-									// SavedCities.map(city => city.setNextBodyTime(boi));
-									WriteNewSaveToFile();
 								}
 							}}
 							onPressOut={() => {
@@ -782,7 +824,11 @@ export default function BodiesScreen() {
 					</Svg>
 
 					<View style={styles.boiPopupUseBtnTextContainer} pointerEvents="none">
-						<Text style={[styles.boiPopupUseBtnText, GLOBAL.ui.btnShadowStyle()]}>
+						<Text style={[
+							styles.boiPopupUseBtnText,
+							{ color: (boi?.canUse) ? GLOBAL.ui.palette[0] : boi?.palette[1] },
+							(boi?.canUse) && GLOBAL.ui.btnShadowStyle()
+						]}>
 							{(boi?.canUse) ? `Use ${boi?.name} Time` : `${boi?.name} Time Unavailable`}
 						</Text>
 					</View>
@@ -810,7 +856,7 @@ export default function BodiesScreen() {
 					</Svg>
 
 					<Text style={{
-						fontFamily: "Trickster-Reg",
+						fontFamily: "Trickster-Reg-Semi",
 						fontSize: 1.5 * GLOBAL.ui.bodyTextSize,
 						marginLeft: GLOBAL.screen.horizOffset / 2,
 						marginBottom: 0.1 * GLOBAL.ui.bodyTextSize,
@@ -821,8 +867,8 @@ export default function BodiesScreen() {
 				<Text style={{
 					position: "absolute",
 					textAlign: "center",
-					width: "80%",
-					fontFamily: "Trickster-Reg",
+					width: "85%",
+					fontFamily: "Trickster-Reg-Semi",
 					fontSize: 0.6 * GLOBAL.ui.bodyTextSize,
 					marginBottom: boiPopupUseBtnHeight / 2,
 					color: GLOBAL.ui.palette[1],

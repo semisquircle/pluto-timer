@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
 
 	title: {
 		width: "100%",
-		fontFamily: "Trickster-Reg",
+		fontFamily: "Trickster-Reg-Semi",
 		fontSize: 30,
 		marginBottom: GLOBAL.screen.horizOffset,
 		color: GLOBAL.ui.palette[0],
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
 
 	subtitle: {
 		width: "100%",
-		fontFamily: "Trickster-Reg",
+		fontFamily: "Trickster-Reg-Semi",
 		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
 		marginBottom: GLOBAL.screen.horizOffset,
 		marginTop: 2.5 * GLOBAL.screen.horizOffset
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
 	},
 
 	notifReminderTitle: {
-		fontFamily: "Trickster-Reg",
+		fontFamily: "Trickster-Reg-Semi",
 		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
 		color: GLOBAL.ui.palette[0],
 	},
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
 	},
 
 	creditsBracket: {
-		fontFamily: "Trickster-Reg",
+		fontFamily: "Trickster-Reg-Semi",
 		fontSize: 2.5 * GLOBAL.ui.bodyTextSize,
 	},
 
@@ -201,23 +201,22 @@ function CurlyBracket({width, height, strokeColor, direction}: curlyBracketInter
 export default function SettingsScreen() {
 	//* App storage
 	const WriteDefaultSaveToFile = GLOBAL.useSaveStore((state) => state.writeDefaultSaveToFile);
+	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
+
 	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
-
+	const SetNeedsToGeolocate = GLOBAL.useSaveStore((state) => state.setNeedToGeolocate);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-
 	const NotifFreqs = GLOBAL.useSaveStore((state) => state.notifFreqs);
 	const ToggleNotifFreq = GLOBAL.useSaveStore((state) => state.toggleNotifFreq);
-
 	const NotifReminders = GLOBAL.useSaveStore((state) => state.notifReminders);
 	const ToggleNotifReminder = GLOBAL.useSaveStore((state) => state.toggleNotifReminder);
-
 	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
 	const SetIsFormat24Hour = GLOBAL.useSaveStore((state) => state.setIsFormat24Hour);
 
 
 	//* Colors
 	const subTitleColor = { color: ActiveBody?.palette[0] };
-	const inputOffColor = ActiveBody?.palette[3];
+	const inputOffColor = ActiveBody?.palette[2];
 	const btnBgColor = ActiveBody?.palette[2];
 
 
@@ -337,6 +336,7 @@ export default function SettingsScreen() {
 									style={[styles.freqOption, containerAnimStyle]}
 									onPress={() => {
 										ToggleNotifFreq(i);
+										WriteNewSaveToFile(); //^ Save write
 									}}
 								>
 									<Svg
@@ -403,7 +403,7 @@ export default function SettingsScreen() {
 
 										<AnimatedSvgText
 											animatedProps={textAnimProps}
-											fontFamily="Trickster-Reg"
+											fontFamily="Trickster-Reg-Semi"
 											fontSize={freqOptionsTextSize}
 											letterSpacing="0"
 											textAnchor="middle"
@@ -415,7 +415,7 @@ export default function SettingsScreen() {
 
 										<AnimatedSvgText
 											animatedProps={textAnimProps}
-											fontFamily="Trickster-Reg"
+											fontFamily="Trickster-Reg-Semi"
 											fontSize={freqOptionsTextSize}
 											letterSpacing="0"
 											textAnchor="middle"
@@ -472,16 +472,13 @@ export default function SettingsScreen() {
 								</Text>
 
 								<Switch
-									trackColor={{ false: inputOffColor, true: ActiveBody?.palette[2] }}
+									trackColor={{ false: inputOffColor, true: ActiveBody?.palette[1] }}
 									ios_backgroundColor={inputOffColor}
-									thumbColor={
-										NotifReminders[o]
-											? GLOBAL.ui.palette[0]
-											: GLOBAL.ui.palette[1]
-									}
+									thumbColor={(NotifReminders[o]) ? GLOBAL.ui.palette[0] : GLOBAL.ui.palette[1]}
 									value={NotifReminders[o]}
 									onValueChange={() => {
 										ToggleNotifReminder(o);
+										WriteNewSaveToFile(); //^ Save write
 									}}
 								/>
 							</View>
@@ -518,6 +515,7 @@ export default function SettingsScreen() {
 								}}
 								onPress={() => {
 									SetIsFormat24Hour(f == 1);
+									WriteNewSaveToFile(); //^ Save write
 								}}
 								onPressOut={() => {
 									setTimeFormatPressed(null);
@@ -622,7 +620,7 @@ export default function SettingsScreen() {
 									<Animated.Text
 										style={[
 											{
-												fontFamily: "Trickster-Reg",
+												fontFamily: "Trickster-Reg-Semi",
 												fontSize: GLOBAL.ui.bodyTextSize,
 											},
 											GLOBAL.ui.btnShadowStyle(),
@@ -633,7 +631,7 @@ export default function SettingsScreen() {
 									<Animated.Text
 										style={[
 											{
-												fontFamily: "Trickster-Reg",
+												fontFamily: "Trickster-Reg-Semi",
 												fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
 											},
 											GLOBAL.ui.btnShadowStyle(),
@@ -661,7 +659,7 @@ export default function SettingsScreen() {
 								}}
 							>
 								<Text style={{
-									fontFamily: "Trickster-Reg",
+									fontFamily: "Trickster-Reg-Semi",
 									fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
 									color: inputOffColor,
 								}}>{credit.name}</Text>
@@ -695,7 +693,7 @@ export default function SettingsScreen() {
 											<Text
 												key={`credit${c}-job${j}`}
 												style={{
-													fontFamily: "Trickster-Reg",
+													fontFamily: "Trickster-Reg-Semi",
 													fontSize: 0.6 * GLOBAL.ui.bodyTextSize,
 													color: inputOffColor,
 												}}
@@ -719,7 +717,7 @@ export default function SettingsScreen() {
 					</Text>
 					<View style={[styles.creditContainer, { borderColor: inputOffColor }]}>
 						<Text style={{
-							fontFamily: "Trickster-Reg",
+							fontFamily: "Trickster-Reg-Semi",
 							fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
 							color: inputOffColor,
 						}}>Artificial Intelligence</Text>
@@ -756,8 +754,9 @@ export default function SettingsScreen() {
 										text: "Sure",
 										style: "destructive",
 										onPress: () => {
-											WriteDefaultSaveToFile();
+											WriteDefaultSaveToFile(); //^ Save write
 											LoadSave();
+											SetNeedsToGeolocate(true);
 											setIsRestoreBtnActive(false);
 										}
 									},
@@ -817,12 +816,9 @@ export default function SettingsScreen() {
 							/>
 						</Svg>
 
-						<View style={[
-							{ position: "absolute", },
-							GLOBAL.ui.btnShadowStyle()
-						]}>
+						<View style={[{ position: "absolute", }, GLOBAL.ui.btnShadowStyle()]}>
 							<Text style={{
-								fontFamily: "Trickster-Reg",
+								fontFamily: "Trickster-Reg-Semi",
 								fontSize: GLOBAL.ui.bodyTextSize,
 								color: GLOBAL.ui.palette[0],
 							}}>Restore all settings to default</Text>

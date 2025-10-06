@@ -6,92 +6,6 @@ import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
 import { Defs, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
-//* Fonts
-const bodyTimeFontPrefs: any[] = [
-	{
-		name: "Hades-TallFat",
-		spacing: 1,
-		glyphHeight: 57.5,
-		glyphWidths: {
-			"A": 12,
-			"M": 18.5,
-			"N": 18.5,
-			"O": 12,
-			"P": 12,
-			"W": 18.5,
-
-			"0": 12,
-			"1": 5.5,
-			"2": 12,
-			"3": 12,
-			"4": 12,
-			"5": 12,
-			"6": 12,
-			"7": 12,
-			"8": 12,
-			"9": 12,
-
-			":": 5.5,
-			"!": 5.5
-		}
-	},
-	{
-		name: "Hades-ShortFat",
-		spacing: 1,
-		glyphHeight: 44.5,
-		glyphWidths: {
-			"A": 12,
-			"M": 18.5,
-			"N": 18.5,
-			"O": 12,
-			"P": 12,
-			"W": 18.5,
-
-			"0": 12,
-			"1": 5.5,
-			"2": 12,
-			"3": 12,
-			"4": 12,
-			"5": 12,
-			"6": 12,
-			"7": 12,
-			"8": 12,
-			"9": 12,
-
-			":": 5.5,
-			"!": 5.5
-		}
-	},
-	{
-		name: "Hades-ShortSkinny",
-		spacing: 1.5,
-		glyphHeight: 51.5,
-		glyphWidths: {
-			"A": 12.5,
-			"M": 19.5,
-			"N": 19.5,
-			"O": 12.5,
-			"P": 12.5,
-			"W": 19.5,
-
-			"0": 12.5,
-			"1": 5.5,
-			"2": 12.5,
-			"3": 12.5,
-			"4": 12.5,
-			"5": 12.5,
-			"6": 12.5,
-			"7": 12.5,
-			"8": 12.5,
-			"9": 12.5,
-
-			":": 5.5,
-			"!": 5.5
-		}
-	}
-];
-
-
 //* Body
 const bodyFrameWidth = 20;
 const bodyFrameHeight = 20;
@@ -105,6 +19,13 @@ export default function HomeScreen() {
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
+
+
+	//! Is body time now? (could use refactoring)
+	const [isBodyTimeNow, setIsBodyTimeNow] = useState(false);
+	useEffect(() => {
+		setIsBodyTimeNow(ActiveCity.isBodyTimeNow());
+	});
 
 
 	//* Colors
@@ -229,14 +150,14 @@ export default function HomeScreen() {
 
 	//* Text fitting
 	const nextBodyTime = ActiveCity.getClockTime();
-	const nextBodyTimeText = ActiveCity.isBodyTimeNow() ? "NOW!" : nextBodyTime;
+	const nextBodyTimeText = isBodyTimeNow ? "NOW!" : nextBodyTime;
 	const nextBodyDate = ActiveCity.getDateLong();
-	const bodyTimeFontPref = bodyTimeFontPrefs[ActiveCity.isBodyTimeNow() ? 1 : 0];
+	const bodyTimeFont = GLOBAL.ui.timeFonts[isBodyTimeNow ? 1 : 0];
 
 	const nextBodyTimeWidth = useMemo(() => {
 		return nextBodyTimeText.split("").reduce((w, char, i) =>
-			w + bodyTimeFontPref.glyphWidths[char] +
-			(i < nextBodyTimeText.length - 1 ? bodyTimeFontPref.spacing : 0)
+			w + bodyTimeFont.glyphWidths[char as keyof typeof bodyTimeFont.glyphWidths] +
+			(i < nextBodyTimeText.length - 1 ? bodyTimeFont.spacing : 0)
 		, 0);
 	}, [nextBodyTimeText]);
 
@@ -340,21 +261,21 @@ export default function HomeScreen() {
 		nextText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "Trickster-Reg",
+			fontFamily: "Trickster-Reg-Semi",
 			fontSize: GLOBAL.ui.bodyTextSize,
 			color: GLOBAL.ui.palette[0],
 		},
 
 		bodyTimeText: {
-			fontFamily: "Trickster-Reg",
+			fontFamily: "Trickster-Reg-Semi",
 			color: bodyTextColor,
 		},
 
 		nextBodyTime: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: bodyTimeFontPref.name,
-			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset)) / nextBodyTimeWidth) * bodyTimeFontPref.glyphHeight,
+			fontFamily: bodyTimeFont.name,
+			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset)) / nextBodyTimeWidth) * bodyTimeFont.glyphHeight,
 			marginVertical: GLOBAL.screen.horizOffset,
 			color: GLOBAL.ui.palette[0],
 		},
@@ -362,7 +283,7 @@ export default function HomeScreen() {
 		dateText: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: "Trickster-Reg",
+			fontFamily: "Trickster-Reg-Semi",
 			fontSize: GLOBAL.ui.bodyTextSize,
 			marginTop: -0.15 * GLOBAL.ui.bodyTextSize,
 			paddingBottom: 0.3 * GLOBAL.ui.bodyTextSize,
@@ -370,7 +291,7 @@ export default function HomeScreen() {
 		},
 
 		nextBodyDate: {
-			fontFamily: "Trickster-Reg",
+			fontFamily: "Trickster-Reg-Semi",
 			color: bodyTextColor,
 		},
 
@@ -424,16 +345,16 @@ export default function HomeScreen() {
 
 			<View style={[styles.timeContainer, GLOBAL.ui.skewStyle, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">
 				<Text style={styles.nextText}>
-					{ActiveCity.isBodyTimeNow() ? "It's " : "Your next "}
+					{isBodyTimeNow ? "It's " : "Your next "}
 					<Text style={styles.bodyTimeText}>{ActiveBody?.name} Time</Text>
-					{ActiveCity.isBodyTimeNow() ? "" : " will occur at"}
+					{isBodyTimeNow ? "" : " will occur at"}
 				</Text>
 
 				<Text style={styles.nextBodyTime} numberOfLines={1}>
-					{ActiveCity.isBodyTimeNow() ? "NOW!" : nextBodyTime}
+					{isBodyTimeNow ? "NOW!" : nextBodyTime}
 				</Text>
 
-				{!ActiveCity.isBodyTimeNow() && (
+				{!isBodyTimeNow && (
 					<Text style={styles.dateText}>
 						on <Text style={styles.nextBodyDate}>{nextBodyDate}</Text>
 					</Text>
@@ -461,7 +382,7 @@ export default function HomeScreen() {
 						<SvgText
 							key={`cur-loc-${youAreHereTextOffset}`} //? Forces text update on location change
 							fill={youAreHereColor}
-							fontFamily="Trickster-Reg-Arrow"
+							fontFamily="Trickster-Reg-Semi"
 							fontSize={youAreHereTextSize}
 							letterSpacing="0.5"
 							textAnchor="middle"
@@ -474,7 +395,7 @@ export default function HomeScreen() {
 
 					<SvgText
 						fill={activeCityColor}
-						fontFamily="Trickster-Reg"
+						fontFamily="Trickster-Reg-Semi"
 						fontSize={locationNameTextSize}
 						letterSpacing="1"
 						textAnchor="middle"

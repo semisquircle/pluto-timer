@@ -1,11 +1,15 @@
 import * as GLOBAL from "@/ref/global";
+// import StarField from "@/ref/star-field";
 import MaskedView from "@react-native-masked-view/masked-view";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
 import { useFonts } from "expo-font";
 import { Image as ExpoImage } from "expo-image";
 import * as ExpoLocation from "expo-location";
+import * as Notifications from "expo-notifications";
 import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Pressable, StatusBar, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { Path, Svg } from "react-native-svg";
 
 
@@ -81,6 +85,58 @@ const tabArray: {
 ];
 
 
+//* Notifications
+Notifications.setNotificationHandler({
+	handleNotification: async () => ({
+		shouldPlaySound: false,
+		shouldSetBadge: false,
+		shouldShowBanner: true,
+		shouldShowList: false,
+	}),
+});
+
+async function registerForPushNotificationsAsync() {
+	let token;
+
+	if (Platform.OS === "android") {
+		await Notifications.setNotificationChannelAsync("myNotificationChannel", {
+			name: "A channel is needed for the permissions prompt to appear",
+			importance: Notifications.AndroidImportance.MAX,
+			vibrationPattern: [0, 250, 250, 250],
+			lightColor: "#FF231F7C",
+		});
+	}
+
+	if (Device.isDevice) {
+		const { status: existingStatus } = await Notifications.getPermissionsAsync();
+		let finalStatus = existingStatus;
+		if (existingStatus !== "granted") {
+			const { status } = await Notifications.requestPermissionsAsync();
+			finalStatus = status;
+		}
+		if (finalStatus !== "granted") {
+			alert("Failed to get push token for push notification!");
+			return;
+		}
+
+		try {
+			const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+			if (!projectId) {
+				throw new Error("Project ID not found");
+			}
+			token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+			// console.log(token);
+		} catch (err) {
+			token = `${err}`;
+		}
+	} else {
+		alert("Must use physical device for Push Notifications");
+	}
+
+	return token;
+}
+
+
 //* Stylesheet
 const styles = StyleSheet.create({
 	screen: {
@@ -123,24 +179,52 @@ const styles = StyleSheet.create({
 	},
 });
 
+
 export default function Layout() {
 	//* App storage
 	const InitDefaultSaveData = GLOBAL.useSaveStore((state) => state.initDefaultSaveData);
 	const WriteDefaultSaveToFile = GLOBAL.useSaveStore((state) => state.writeDefaultSaveToFile);
 	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
 	const IsSaveLoaded = GLOBAL.useSaveStore((state) => state.isSaveLoaded);
-	useEffect(() => {
-		// router.replace(tabArray[2].href);
-		InitDefaultSaveData();
-		WriteDefaultSaveToFile();
-		// LoadSave();
-	}, []);
+	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
 
+	const NeedsToGeolocate = GLOBAL.useSaveStore((state) => state.needToGeolocate);
+	const SetNeedsToGeolocate = GLOBAL.useSaveStore((state) => state.setNeedToGeolocate);
 	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
 	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const UnshiftSavedCity = GLOBAL.useSaveStore((state) => state.unshiftSavedCity);
+	const SetHereCity = GLOBAL.useSaveStore((state) => state.setHereCity);
+	const SchedulePushNotifs = GLOBAL.useSaveStore((state) => state.schedulePushNotifs);
+
+	const [expoPushToken, setExpoPushToken] = useState("");
+	const [channels, setChannels] = useState<Notifications.NotificationChannel[]>([]);
+	const [notification, setNotification] = useState<Notifications.Notification | undefined>(undefined);
+	
+	useEffect(() => {
+		// Saves
+		InitDefaultSaveData();
+		WriteDefaultSaveToFile(); //^ Save write
+		// LoadSave();
+		SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
+
+		// Notifications
+		registerForPushNotificationsAsync().then(token => token && setExpoPushToken(token));
+		if (Platform.OS === "android") {
+			Notifications.getNotificationChannelsAsync().then(value => setChannels(value ?? []));
+		}
+		const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+			setNotification(notification);
+		});
+		const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+			console.log(response);
+		});
+		SchedulePushNotifs();
+		return () => {
+			notificationListener.remove();
+			responseListener.remove();
+		};
+	}, []);
 
 
 	//* Set safe area insets
@@ -155,10 +239,7 @@ export default function Layout() {
 
 	//* Fonts
 	const [fontsLoaded] = useFonts({
-		"Trickster-Reg": require("../assets/fonts/Trickster/Trickster-Reg.otf"),
-		"Trickster-Reg-Feat": require("../assets/fonts/Trickster/Trickster-Reg-Feat.otf"),
-		"Trickster-Reg-Arrow": require("../assets/fonts/Trickster/Trickster-Reg-Arrow.otf"),
-
+		"Trickster-Reg-Semi": require("../assets/fonts/Trickster/Trickster-Reg-Semi.otf"),
 		"Hades-TallFat": require("../assets/fonts/Hades/Hades-TallFat.ttf"),
 		"Hades-ShortFat": require("../assets/fonts/Hades/Hades-ShortFat.ttf"),
 		"Hades-ShortSkinny": require("../assets/fonts/Hades/Hades-ShortSkinny.ttf"),
@@ -166,52 +247,49 @@ export default function Layout() {
 
 
 	//* Geolocation
-	const [geolocation, setGeolocation] = useState<GLOBAL.City>();
 	useEffect(() => {
-		(async () => {
-			try {
-				const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-				if (status !== "granted") {
-					console.log("Permission to access location was denied");
-					return; // bail early
+		if (NeedsToGeolocate) {
+			(async () => {
+				try {
+					const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+					if (status !== "granted") {
+						console.log("Permission to access location was denied");
+						return; // bail early
+					}
+
+					const position = await ExpoLocation.getCurrentPositionAsync({});
+					if (!position) {
+						console.log("Failed to get current position");
+						return; // bail early
+					}
+					const lat = position.coords.latitude;
+					const lon = position.coords.longitude;
+
+					const results = await ExpoLocation.reverseGeocodeAsync({
+						latitude: lat,
+						longitude: lon,
+					});
+					if (!results || results.length === 0) {
+						console.log("Failed to reverse geocode location");
+						return; // bail early
+					}
+
+					const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
+					const city = new GLOBAL.City(name!, lat, lon);
+					city.setNextBodyTime(ActiveBody!);
+					SetHereCity(city);
+					console.log("Geolocation was a success!");
+					SchedulePushNotifs();
+
+					WriteNewSaveToFile(); //^ Save write
+					SetNeedsToGeolocate(false);
 				}
-
-				const position = await ExpoLocation.getCurrentPositionAsync({});
-				if (!position) {
-					console.log("Failed to get current position");
-					return; // bail early
+				catch (err) {
+					console.error("Error fetching location:", err);
 				}
-				const lat = position.coords.latitude;
-				const lon = position.coords.longitude;
-				// const lat = 78.216667;
-				// const lon = 15.633333;
-
-				const results = await ExpoLocation.reverseGeocodeAsync({
-					latitude: lat,
-					longitude: lon,
-				});
-				if (!results || results.length === 0) {
-					console.log("Failed to reverse geocode location");
-					return; // bail early
-				}
-
-				const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country ?? "";
-				const city = new GLOBAL.City(name, lat, lon);
-				// city.setNextBodyTime(ActiveBody!);
-				setGeolocation(city);
-				UnshiftSavedCity(city);
-			}
-			catch (err) { console.error("Error fetching location:", err); }
-		})();
-	}, []);
-
-
-	//* Calculate body times (after save load)
-	useEffect(() => {
-		if (IsSaveLoaded) {
-			SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
+			})();
 		}
-	}, [IsSaveLoaded, geolocation]);
+	}, [NeedsToGeolocate]);
 
 
 	//* Tabs
