@@ -36,8 +36,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-app-example
-
 #* Semi
 ios/
 android/
@@ -48,7 +46,9 @@ python/
 **/*.exe
 **/*.csv
 **/*.gd
+**/*.sfd
+**/*.sh
+**/*.ipa
 **/uncompressed
 **/bodies-originals
 assets/fonts/Trickster/svg
-**/*.sfd

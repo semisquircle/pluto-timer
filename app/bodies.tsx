@@ -4,14 +4,14 @@ import { AllBodies, CelestialBody, CelestialSystem, SolarSystem } from "@/ref/so
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { Easing, SharedValue, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing, SharedValue, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { withPause } from "react-native-redash";
 import { Circle, ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
 //* Reanimated
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
+const ReanimatedPressable = Reanimated.createAnimatedComponent(Pressable);
+const ReanimatedEllipse = Reanimated.createAnimatedComponent(Ellipse);
 
 
 //* BOI popup
@@ -35,7 +35,6 @@ const solFrameDimension = 1.3 * solDiameter;
 const solFrameWidth = 20;
 const solFrameHeight = 20;
 const totalSolFrames = solFrameWidth * solFrameHeight;
-const solAnimFPS = 30;
 
 
 //* Systems
@@ -92,7 +91,7 @@ const BodyBtn = (props: BodyBtnTypes) => {
 			},
 			props.style
 		]}>
-			<AnimatedPressable
+			<ReanimatedPressable
 				style={{
 					position: "absolute",
 					justifyContent: "center",
@@ -111,7 +110,7 @@ const BodyBtn = (props: BodyBtnTypes) => {
 						${(props.body.scale.y * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
 					`}
 				>
-					<AnimatedEllipse
+					<ReanimatedEllipse
 						fill={props.body.palette[2]}
 						stroke={GLOBAL.ui.palette[0]}
 						animatedProps={bodyAnimProps}
@@ -121,7 +120,7 @@ const BodyBtn = (props: BodyBtnTypes) => {
 						ry={(props.body.scale.y * props.diameter) / 2}
 					/>
 				</Svg>
-			</AnimatedPressable>
+			</ReanimatedPressable>
 
 			<ExpoImage
 				style={{
@@ -251,7 +250,7 @@ const SystemItem = (props: SystemTypes) => {
 				});
 
 				return (
-					<Animated.View
+					<Reanimated.View
 						key={`moon-${moonIndex}`}
 						style={[
 							{
@@ -277,7 +276,7 @@ const SystemItem = (props: SystemTypes) => {
 								props.setNumBodyImgsLoaded(prev => prev + 1);
 							}}
 						/>
-					</Animated.View>
+					</Reanimated.View>
 				);
 			})}
 		</View>
@@ -411,6 +410,7 @@ export default function BodiesScreen() {
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
+	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
 
 
 	//* Colors
@@ -441,13 +441,13 @@ export default function BodiesScreen() {
 	//* Sol animation
 	const [isSolPlaceholderImgDisplayed, setIsSolPlaceholderImgDisplayed] = useState<boolean>(false);
 	const [isSolSpriteSheetDisplayed, setIsSolSpriteSheetDisplayed] = useState<boolean>(false);
-	const solFrameSV = useSharedValue(0);
+	const solFrame = useSharedValue(0);
 	useEffect(() => {
 		if (isSolSpriteSheetDisplayed) {
-			solFrameSV.value = withPause(
+			solFrame.value = withPause(
 				withRepeat(withTiming(
 					totalSolFrames - 1,
-					{ duration: (1000 / solAnimFPS) * totalSolFrames, easing: Easing.linear }),
+					{ duration: (1000 / GLOBAL.ui.fps) * totalSolFrames, easing: Easing.linear }),
 					-1,
 					false
 				),
@@ -457,7 +457,7 @@ export default function BodiesScreen() {
 	}, [isSolSpriteSheetDisplayed, isAnimPaused]);
 
 	const solAnimStyle = useAnimatedStyle(() => {
-		const solFrameInt = Math.round(solFrameSV.value);
+		const solFrameInt = Math.round(solFrame.value);
 		return {
 			left: -(solFrameInt % solFrameWidth) * solFrameDimension,
 			top: -Math.floor(solFrameInt / solFrameWidth) * solFrameDimension,
@@ -528,7 +528,7 @@ export default function BodiesScreen() {
 							}
 
 							{(areAllBodyImgsLoaded) &&
-								<Animated.View style={[styles.solSpriteSheet, solAnimStyle]}>
+								<Reanimated.View style={[styles.solSpriteSheet, solAnimStyle]}>
 									<ExpoImage
 										style={styles.solSpriteSheetImg}
 										source={sol.spriteSheet}
@@ -536,7 +536,7 @@ export default function BodiesScreen() {
 											setIsSolSpriteSheetDisplayed(true);
 										}}
 									/>
-								</Animated.View>
+								</Reanimated.View>
 							}
 						</View>
 					</View>
@@ -580,7 +580,7 @@ export default function BodiesScreen() {
 			<SlotTopShadow />
 			<SlotBottomShadow />
 
-			<Animated.View style={[styles.boiPopup, GLOBAL.ui.btnShadowStyle("up"), boiPopupAnimStyle]}>
+			<Reanimated.View style={[styles.boiPopup, GLOBAL.ui.btnShadowStyle("up"), boiPopupAnimStyle]}>
 				<Svg
 					style={styles.boiPopupSvg}
 					width="100%"
@@ -811,8 +811,9 @@ export default function BodiesScreen() {
 							onPress={() => {
 								if (boi?.canUse) {
 									SetActiveBody(boi?.name);
-									SavedCities.map(city => city.setNextBodyTime(boi));
-									WriteNewSaveToFile();
+									SavedCities.map(city => city.setNextBodyTimes(boi));
+									WriteNewSaveToFile(); //^ Save write
+									ScheduleNotifs();
 									setIsBodyInterested(false);
 									isAnimPaused.value = false;
 								}
@@ -873,7 +874,7 @@ export default function BodiesScreen() {
 					marginBottom: boiPopupUseBtnHeight / 2,
 					color: GLOBAL.ui.palette[1],
 				}}>{boi?.desc}</Text>
-			</Animated.View>
+			</Reanimated.View>
 		</View>
 	);
 }

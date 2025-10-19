@@ -1,55 +1,85 @@
 {
   "expo": {
-    "name": "pluto-time",
-    "slug": "pluto-time",
+    "name": "Pluto Timer",
+    "slug": "pluto-timer",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icons/icon.png",
-    "scheme": "plutotime",
+    "icon": "./assets/images/app-icon/icon-full.png",
+    "scheme": "plutotimer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.pluto-time"
+      "bundleIdentifier": "com.semisquircle.plutotimer",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "process"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icons/adaptive-icon.png",
+        "foregroundImage": "./assets/images/app-icon/icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.plutotime"
+      "package": "com.semisquircle.plutotimer"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/app-icons/favicon.png"
+      "favicon": "./assets/images/app-icon/favicon.png"
     },
     "plugins": [
+      "expo-asset",
       "expo-router",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Trickster/Trickster-Reg-Semi.otf",
+            "./assets/fonts/Hades/Hades-TallFat.ttf",
+            "./assets/fonts/Hades/Hades-ShortFat.ttf",
+            "./assets/fonts/Hades/Hades-SuperShortFat.ttf",
+            "./assets/fonts/Hades/Hades-ShortSkinny.ttf"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/app-icons/splash-icon.png",
+          "image": "./assets/images/app-icon/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#A69171"
         }
       ],
-      "expo-asset",
-      "expo-font",
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/app-icons/icon.png",
+          "icon": "./assets/images/app-icon/icon-full.png",
           "color": "#ffffff",
           "defaultChannel": "default",
-          "enableBackgroundRemoteNotifications": false
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "owner": "semisquircle",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c09519ac-0c60-4a73-9934-b6342a15d76f"
+      }
     }
   }
 }

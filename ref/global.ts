@@ -1,98 +1,24 @@
 import * as Application from "expo-application";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as Notifications from "expo-notifications";
 import { Dimensions, Platform } from "react-native";
 import * as SUNCALC from "suncalc";
 import { create } from "zustand";
+import FontPrefs from "./font-prefs.json" with { type: "json" };
 import { AllBodies, CelestialBody } from "./solar-system";
 
 
+export interface TimeFont {
+	name: string,
+	spacing: number,
+	glyph_height: number,
+	glyph_widths: { char: string, width: number }[],
+}
+
 //* UI
 export const ui = {
-	palette: ["#ffffff", "#000000"],
-	timeFonts: [
-		{
-			name: "Hades-TallFat",
-			spacing: 1,
-			glyphHeight: 57.5,
-			glyphWidths: {
-				"A": 12,
-				"M": 18.5,
-				"N": 18.5,
-				"O": 12,
-				"P": 12,
-				"W": 18.5,
-	
-				"0": 12,
-				"1": 5.5,
-				"2": 12,
-				"3": 12,
-				"4": 12,
-				"5": 12,
-				"6": 12,
-				"7": 12,
-				"8": 12,
-				"9": 12,
-	
-				":": 5.5,
-				"!": 5.5
-			}
-		},
-		{
-			name: "Hades-ShortFat",
-			spacing: 1,
-			glyphHeight: 44.5,
-			glyphWidths: {
-				"A": 12,
-				"M": 18.5,
-				"N": 18.5,
-				"O": 12,
-				"P": 12,
-				"W": 18.5,
-	
-				"0": 12,
-				"1": 5.5,
-				"2": 12,
-				"3": 12,
-				"4": 12,
-				"5": 12,
-				"6": 12,
-				"7": 12,
-				"8": 12,
-				"9": 12,
-	
-				":": 5.5,
-				"!": 5.5
-			}
-		},
-		{
-			name: "Hades-ShortSkinny",
-			spacing: 1.5,
-			glyphHeight: 51.5,
-			glyphWidths: {
-				"A": 12.5,
-				"M": 19.5,
-				"N": 19.5,
-				"O": 12.5,
-				"P": 12.5,
-				"W": 19.5,
-	
-				"0": 12.5,
-				"1": 5.5,
-				"2": 12.5,
-				"3": 12.5,
-				"4": 12.5,
-				"5": 12.5,
-				"6": 12.5,
-				"7": 12.5,
-				"8": 12.5,
-				"9": 12.5,
-	
-				":": 5.5,
-				"!": 5.5
-			}
-		}
-	],
+	palette: ["#ffffff", "#000000", "#ff453a"],
+	timeFonts: FontPrefs as TimeFont[],
 	get bodyTextSize() {
 		return 0.055 * slot.width;
 	},
@@ -130,11 +56,13 @@ export const ui = {
 				height: offset * this.inputBorderWidth
 			},
 			shadowRadius: this.inputBorderWidth,
-			shadowOpacity: 0.7,
+			shadowOpacity: 0.5,
 		}
 	},
 	animDuration: 0.2,
-	fps: 60,
+	fps: 20,
+	alertYes: "Yerp!",
+	alertNo: "Wait...",
 }
 
 export const screen = {
@@ -174,62 +102,95 @@ export const slot = {
 
 
 //* City class
+const ONE_DAY = 24 * 60 * 60 * 1000;
+const ONE_MINUTE = 60 * 1000;
+export const bodyTimeLength = 5 * 60 * 1000;
+
 export class City {
 	name: string;
 	lat: number;
 	lng: number;
-	nextBodyTime: Date;
+	nextBodyTimes = Array.from({ length: 10 }, () => new Date(Date.now() + 2 * ONE_DAY));
 
 	constructor(name: string, lat: number, lon: number) {
 		this.name = name;
 		this.lat = lat;
 		this.lng = lon;
-		this.nextBodyTime = new Date(0);
 	}
 
-	solarAltitudeAt(date: Date) {
+	solarAltitudeAt(date: Date): number {
 		const pos = SUNCALC.getPosition(date, this.lat, this.lng);
 		return pos.altitude * (180 / Math.PI);
 	}
 
-	setNextBodyTime(body: CelestialBody) {
-		const now = new Date();
-
-		if (body.name == "Terra") {
-			const times = SUNCALC.getTimes(now, this.lat, this.lng);
-			this.nextBodyTime = times.solarNoon;
-		} else {
-			let date = new Date(now.getTime());
-			let altitude = this.solarAltitudeAt(date);
-			//? Is the current altitude before the next target altitude for today?
-			const isBefore = (altitude <= body.targetAltitude);
-			const step = 60 * 1000; // 1 minute
-
-			while (true) {
-				date = new Date(date.getTime() + step);
-				altitude = this.solarAltitudeAt(date);
-
-				if (
-					(isBefore && altitude > body.targetAltitude) ||
-					(!isBefore && altitude <= body.targetAltitude)
-				) {
-					this.nextBodyTime = date;
-					return;
-				}
-			}
+	findNextSolarNoon(start: Date): Date {
+		let times = SUNCALC.getTimes(start, this.lat, this.lng);
+		if (times.solarNoon.getTime() <= start.getTime()) {
+			const tomorrow = new Date(start.getTime() + ONE_DAY);
+			times = SUNCALC.getTimes(tomorrow, this.lat, this.lng);
 		}
+		return times.solarNoon;
 	}
 
-	getClockTime() {
-		return this.nextBodyTime.toLocaleTimeString(undefined, {
+	findNextBodyTime(isBefore: boolean, targetAltitude: number, start: Date, end: Date): Date {
+		let startT = start.getTime();
+		let endT = end.getTime();
+		while (endT - startT > ONE_MINUTE) {
+			const midT = (startT + endT) / 2;
+			const midDate = new Date(midT);
+			const midAlt = this.solarAltitudeAt(midDate);
+			if (
+				(isBefore && midAlt > targetAltitude) ||
+				(!isBefore && midAlt <= targetAltitude)
+			) {
+				endT = midT;
+			} else {
+				startT = midT;
+			}
+		}
+		return new Date(endT);
+		// let foo = new Date(start.getTime() + 2 * ONE_MINUTE);
+		// return new Date(Math.round(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
+	}
+
+	setNextBodyTimes(body: CelestialBody) {
+		let startTime = new Date();
+		let targetTime = new Date(startTime.getTime() - ONE_MINUTE);
+		for (let t = 0; t < this.nextBodyTimes.length; t++) {
+			if (body.name == "Terra") targetTime = this.findNextSolarNoon(targetTime);
+			else {
+				const altitude = this.solarAltitudeAt(startTime);
+				const isBefore = (altitude <= body.targetAltitude);
+				const tomorrow = new Date(startTime.getTime());
+				tomorrow.setHours(tomorrow.getHours() + 24);
+				targetTime = this.findNextBodyTime(isBefore, body.targetAltitude, targetTime, tomorrow);
+			}
+			this.nextBodyTimes[t] = startTime = targetTime;
+		}
+
+		// this.nextBodyTimes.map((nextBodyTime) => {
+		// 	console.log(`${nextBodyTime.toLocaleTimeString()} ${nextBodyTime.toLocaleDateString()}`);
+		// });
+	}
+
+	get12HourClockTime() {
+		return this.nextBodyTimes[0].toLocaleTimeString(undefined, {
 			hour: "numeric",
 			minute: "2-digit",
 			hour12: true
 		}).replace(/\s/g, "");
 	}
 
+	get24HourClockTime() {
+		return this.nextBodyTimes[0].toLocaleTimeString(undefined, {
+			hour: "numeric",
+			minute: "2-digit",
+			hour12: false
+		});
+	}
+
 	getDateLong() {
-		return this.nextBodyTime.toLocaleDateString(undefined, {
+		return this.nextBodyTimes[0].toLocaleDateString(undefined, {
 			weekday: "long",
 			year: "numeric",
 			month: "long",
@@ -238,7 +199,7 @@ export class City {
 	}
 
 	getDateShort() {
-		return this.nextBodyTime.toLocaleDateString(undefined, {
+		return this.nextBodyTimes[0].toLocaleDateString(undefined, {
 			year: "numeric",
 			month: "short",
 			day: "numeric",
@@ -247,20 +208,19 @@ export class City {
 
 	isBodyTimeNow() {
 		const now = new Date();
-		const dt = Math.abs(this.nextBodyTime.getTime() - now.getTime());
-		const threshold = 2.5 * 60 * 1000; // lasts for 5 minutes
-		if (dt <= threshold) return true;
-		return false;
+		const dt = now.getTime() - this.nextBodyTimes[0].getTime();
+		return (0 <= dt && dt <= bodyTimeLength) ? true : false;
 	}
 }
 
 
 //* Zustand saving
 const appVersion = Application.nativeApplicationVersion;
-const saveFile = new File(Paths.document, `save-${appVersion}.json`);
+const saveDir = new Directory(Paths.document, "saves");
+const saveFile = new File(saveDir, `save-${appVersion}.json`);
 
 type saveStoreTypes = {
-	// Save
+	// Saves
 	defaultSaveData?: any, //^ Not save worthy
 	initDefaultSaveData: () => void,
 	writeDefaultSaveToFile: () => void,
@@ -269,10 +229,16 @@ type saveStoreTypes = {
 	loadSave: () => void,
 	writeNewSaveToFile: () => void,
 
-	// Storage
+	// Permissions n' stuff
+	promptsCompleted: boolean[],
+	setPromptCompleted: (index: number, bool: boolean) => void,
+
 	needToGeolocate?: boolean, //^ Not save worthy
 	setNeedToGeolocate: (bool: boolean) => void,
 
+	scheduleNotifs: () => void,
+
+	// General storage
 	activeTab?: number, //^ Not save worthy
 	setActiveTab: (index: number) => void,
 
@@ -297,12 +263,10 @@ type saveStoreTypes = {
 
 	isFormat24Hour: boolean,
 	setIsFormat24Hour: (bool: boolean) => void,
-
-	schedulePushNotifs: () => void,
 }
 
 export const useSaveStore = create<saveStoreTypes>((set, get) => ({
-	// Save
+	// Saves
 	defaultSaveData: null,
 	initDefaultSaveData: () => {
 		const saveData = {...get()};
@@ -313,18 +277,20 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		delete saveData.activeBody;
 		set({ defaultSaveData: saveData });
 	},
-	writeDefaultSaveToFile: () => {
+	writeDefaultSaveToFile: async () => {
 		const dataToSaveJSON = JSON.stringify(get().defaultSaveData);
+		if (!saveDir.exists) saveDir.create();
 		if (!saveFile.exists) saveFile.create();
 		saveFile.write(dataToSaveJSON);
 		console.log("Wrote default data to save file.");
 	},
 
 	isSaveLoaded: false,
-	loadSave: () => {
+	loadSave: async () => {
 		if (saveFile.exists) {
-			const dataFromSaveJSON = saveFile.textSync();
+			const dataFromSaveJSON = await saveFile.text();
 			const saveData = JSON.parse(dataFromSaveJSON);
+			set({ promptsCompleted: saveData.promptsCompleted });
 			get().setActiveBody(saveData.activeBodyName);
 			set({ savedCities: saveData.savedCities.map((city: any) => new City(city.name, city.lat, city.lng)) });
 			get().setActiveCityIndex(saveData.activeCityIndex);
@@ -336,23 +302,79 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		else console.log("No save file found, using default save data.");
 		set({ isSaveLoaded: true });
 	},
-	writeNewSaveToFile: () => {
-		const dataToSave = {...get()};
-		delete dataToSave.defaultSaveData;
-		delete dataToSave.isSaveLoaded;
-		delete dataToSave.needToGeolocate;
-		delete dataToSave.activeTab;
-		delete dataToSave.activeBody;
-		const dataToSaveJSON = JSON.stringify(dataToSave);
+	writeNewSaveToFile: async () => {
+		const saveData = {...get()};
+		delete saveData.defaultSaveData;
+		delete saveData.isSaveLoaded;
+		delete saveData.needToGeolocate;
+		delete saveData.activeTab;
+		delete saveData.activeBody;
+		const saveDataJSON = JSON.stringify(saveData);
+		if (!saveDir.exists) saveDir.create();
 		if (!saveFile.exists) saveFile.create();
-		saveFile.write(dataToSaveJSON);
+		saveFile.write(saveDataJSON);
 		console.log("Wrote new data to save file.");
 	},
 
-	// Storage
-	needToGeolocate: true,
+	// Permissions n' stuff
+	promptsCompleted: [false, false],
+	setPromptCompleted: (index, bool) => {
+		set(state => ({ promptsCompleted: state.promptsCompleted.map((p, i) => i === index ? bool : p) }));
+	},
+
+	needToGeolocate: false,
 	setNeedToGeolocate: (bool) => set({ needToGeolocate: bool }),
 
+	scheduleNotifs: async () => {
+		const { granted: notifsGranted } = await Notifications.getPermissionsAsync();
+		if (notifsGranted) {
+			const scheduleLocalNotif = (title: string, content: string, date: Date) => {
+				Notifications.scheduleNotificationAsync({
+					content: {
+						title: title,
+						body: content,
+					},
+					trigger: {
+						type: Notifications.SchedulableTriggerInputTypes.DATE,
+						date: date,
+					},
+				});
+			}
+			
+			const activeBody = get().activeBody;
+			const activeCity = get().savedCities[get().activeCityIndex];
+			const timeName = (activeBody?.name == "Terra") ? "Solar Noon" : `${activeBody?.name} Time`;
+			const contents = (activeBody?.name == "Terra") ? [
+				`Step outside — it's the brightest moment of the day.`,
+				`In just five minutes, it will be the brightest moment of the day.`,
+				`In ten minutes, it will be the brightest moment of the day.`
+			] : [
+				`Step outside — the light around you now matches high noon on ${activeBody?.name}.`,
+				`In just five minutes, the sunlight around you will match high noon on ${activeBody?.name}.`,
+				`In ten minutes, the sunlight around you will match high noon on ${activeBody?.name}.`
+			];
+			const freqs = get().notifFreqs;
+			const reminders = get().notifReminders;
+
+			Notifications.cancelAllScheduledNotificationsAsync();
+			activeCity.nextBodyTimes.map((nextBodyTime) => {
+				if (nextBodyTime.getTime() > Date.now()) {
+					const isBeforeNoon = (nextBodyTime.getHours() < 12);
+					const fiveMinBefore = new Date(nextBodyTime.getTime() - (5 * ONE_MINUTE));
+					const tenMinBefore = new Date(nextBodyTime.getTime() - (10 * ONE_MINUTE));
+
+					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[0])
+						scheduleLocalNotif(`It's ${timeName}!`, contents[0], nextBodyTime);
+					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[1])
+						scheduleLocalNotif(`Almost ${timeName}...`, contents[1], fiveMinBefore);
+					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[2])
+						scheduleLocalNotif(`Almost ${timeName}...`, contents[2], tenMinBefore);
+				}
+			});
+		}
+	},
+
+	// General storage
 	activeTab: 2,
 	setActiveTab: (index) => set({ activeTab: index }),
 
@@ -364,15 +386,8 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		set({ activeBody: body });
 	},
 
-	savedCities: [
-		new City("Nowhere", 40, 74),
-		// new City("Orleans", 41.7935216, -69.9604816),
-		// new City("Chacharramendi", -37.331313, -65.65187),
-		// new City("The Longest City Name You Can Think Of", 78.216667, 15.633333),
-	],
-	setSavedCities: (cities) => {
-		set({ savedCities: cities });
-	},
+	savedCities: [new City("Nowhere", 40, 74)],
+	setSavedCities: (cities) => set({ savedCities: cities }),
 	setHereCity: (city) => {
 		set(state => ({ savedCities: [city, ...state.savedCities.slice(1)] }));
 	},
@@ -384,9 +399,7 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	},
 
 	activeCityIndex: 0,
-	setActiveCityIndex: (index) => {
-		set({ activeCityIndex: index });
-	},
+	setActiveCityIndex: (index) => set({ activeCityIndex: index }),
 
 	notifFreqs: [true, true],
 	toggleNotifFreq: (index) => {
@@ -399,43 +412,5 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	},
 
 	isFormat24Hour: false,
-	setIsFormat24Hour: (bool) => {
-		set({ isFormat24Hour: bool });
-	},
-
-	schedulePushNotifs: () => {
-		const sendNotif = (title: string, content: string, date: Date) => {
-			Notifications.scheduleNotificationAsync({
-				content: {
-					title: title,
-					body: content,
-				},
-				trigger: {
-					type: Notifications.SchedulableTriggerInputTypes.DATE,
-					date: date,
-				},
-			});
-		}
-		
-		const activeBody = get().activeBody;
-		const activeCity = get().savedCities[get().activeCityIndex];
-		const freqs = get().notifFreqs;
-		const reminders = get().notifReminders;
-
-		const isBeforeNoon = (activeCity.nextBodyTime.getHours() < 12);
-		const fiveMinBefore = new Date(activeCity.nextBodyTime.getTime() - (5 * 60 * 1000));
-		const tenMinBefore = new Date(activeCity.nextBodyTime.getTime() - (10 * 60 * 1000));
-		// const now = new Date();
-		// const time = new Date(now.getTime() + (30 * 1000));
-		// const fiveMinBefore = new Date(time.getTime() - (10 * 1000));
-		// const tenMinBefore = new Date(time.getTime() - (20 * 1000));
-
-		Notifications.cancelAllScheduledNotificationsAsync();
-		if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[0])
-			sendNotif(`It's ${activeBody?.name} Time!`, `Step outside — the light around you now matches high noon on ${activeBody?.name}.`, activeCity.nextBodyTime);
-		if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[1])
-			sendNotif(`Almost ${activeBody?.name} Time...`, `In five minutes, the sunlight around you will match high noon on ${activeBody?.name}.`, fiveMinBefore);
-		if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[2])
-			sendNotif(`Almost ${activeBody?.name} Time...`, `In ten minutes, the sunlight around you will match high noon on ${activeBody?.name}.`, tenMinBefore);
-	},
+	setIsFormat24Hour: (bool) => set({ isFormat24Hour: bool }),
 }));

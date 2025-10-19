@@ -1,17 +1,22 @@
 import * as GLOBAL from "@/ref/global";
+import { RectBtn } from "@/ref/rect-btn";
 // import StarField from "@/ref/star-field";
 import MaskedView from "@react-native-masked-view/masked-view";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
+import * as Application from "expo-application";
 import { useFonts } from "expo-font";
 import { Image as ExpoImage } from "expo-image";
 import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
 import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Platform, Pressable, StatusBar, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 
+
+const ReanimatedPath = Reanimated.createAnimatedComponent(Path);
+const ReanimatedExpoImage = Reanimated.createAnimatedComponent(ExpoImage);
 
 //* Tabs
 const tabIconDimension: number = 0.11 * GLOBAL.slot.width;
@@ -86,62 +91,26 @@ const tabArray: {
 
 
 //* Notifications
-Notifications.setNotificationHandler({
-	handleNotification: async () => ({
-		shouldPlaySound: false,
-		shouldSetBadge: false,
-		shouldShowBanner: true,
-		shouldShowList: false,
-	}),
-});
+// Notifications.setNotificationHandler({
+// 	handleNotification: async () => ({
+// 		shouldPlaySound: true,
+// 		shouldSetBadge: true,
+// 		shouldShowBanner: true,
+// 		shouldShowList: true,
+// 	}),
+// });
 
-async function registerForPushNotificationsAsync() {
-	let token;
 
-	if (Platform.OS === "android") {
-		await Notifications.setNotificationChannelAsync("myNotificationChannel", {
-			name: "A channel is needed for the permissions prompt to appear",
-			importance: Notifications.AndroidImportance.MAX,
-			vibrationPattern: [0, 250, 250, 250],
-			lightColor: "#FF231F7C",
-		});
-	}
-
-	if (Device.isDevice) {
-		const { status: existingStatus } = await Notifications.getPermissionsAsync();
-		let finalStatus = existingStatus;
-		if (existingStatus !== "granted") {
-			const { status } = await Notifications.requestPermissionsAsync();
-			finalStatus = status;
-		}
-		if (finalStatus !== "granted") {
-			alert("Failed to get push token for push notification!");
-			return;
-		}
-
-		try {
-			const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-			if (!projectId) {
-				throw new Error("Project ID not found");
-			}
-			token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-			// console.log(token);
-		} catch (err) {
-			token = `${err}`;
-		}
-	} else {
-		alert("Must use physical device for Push Notifications");
-	}
-
-	return token;
-}
+//* Prompts
+const promptContentWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
+const promptBtnHeight = 80;
 
 
 //* Stylesheet
 const styles = StyleSheet.create({
 	screen: {
-		flex: 1,
-		alignItems: "center",
+		width: GLOBAL.screen.width,
+		height: GLOBAL.screen.height,
 	},
 
 	slotMask: {
@@ -180,83 +149,231 @@ const styles = StyleSheet.create({
 });
 
 
+type PromptTypes = {
+	animStyle: any;
+	title: string;
+	img: any;
+	imgColor: any;
+	subtitles: string[];
+	btn: any;
+	onNotNowPress: () => void;
+}
+const Prompt = (props: PromptTypes) => {
+	return (
+		<Reanimated.View style={[
+			{
+				position: "absolute",
+				justifyContent: "center",
+				alignItems: "center",
+				width: GLOBAL.screen.width,
+				height: GLOBAL.screen.height,
+			},
+			props.animStyle
+		]}>
+			<View style={[
+				{
+					justifyContent: "center",
+					alignItems: "center",
+					width: promptContentWidth,
+					marginTop: GLOBAL.screen.topOffset,
+				},
+				GLOBAL.ui.btnShadowStyle(),
+				GLOBAL.ui.skewStyle
+			]}>
+				<Text style={[
+					{
+						textAlign: "center",
+						width: GLOBAL.slot.width,
+						fontFamily: "Trickster-Reg-Semi",
+						fontSize: 1.9 * GLOBAL.ui.bodyTextSize,
+						color: GLOBAL.ui.palette[0],
+					}
+				]}>{ props.title }</Text>
+
+				<ExpoImage
+					style={{
+						width: promptContentWidth,
+						height: 0.6 * promptContentWidth,
+						backgroundColor: props.imgColor,
+						borderWidth: GLOBAL.ui.inputBorderWidth,
+						borderColor: GLOBAL.ui.palette[0],
+						borderRadius: GLOBAL.screen.horizOffset,
+						marginTop: GLOBAL.ui.bodyTextSize,
+					}}
+					source={props.img}
+					contentFit="cover"
+				/>
+
+				{props.subtitles.map((subtitle, s) => (
+					<Text key={`prompt-subtitle${s}`} style={{
+						width: "90%",
+						textAlign: "center",
+						fontFamily: "Trickster-Reg-Semi",
+						fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+						color: GLOBAL.ui.palette[0],
+						marginTop: GLOBAL.ui.bodyTextSize,
+					}}>{subtitle}</Text>
+				))}
+			</View>
+
+			<View style={[
+				{
+					alignItems: "center",
+					width: "100%",
+					marginTop: promptBtnHeight,
+				},
+				GLOBAL.ui.skewStyle
+			]}>
+				{props.btn}
+
+				<TouchableOpacity
+					style={[
+						{ marginTop: GLOBAL.ui.bodyTextSize },
+						GLOBAL.ui.btnShadowStyle()
+					]}
+					hitSlop={GLOBAL.ui.bodyTextSize}
+					onPress={props.onNotNowPress}
+				>
+					<Text style={{
+						fontFamily: "Trickster-Reg-Semi",
+						fontSize: GLOBAL.ui.bodyTextSize,
+						color: GLOBAL.ui.palette[0],
+						textDecorationLine: "underline",
+					}}>Not now...</Text>
+				</TouchableOpacity>
+			</View>
+		</Reanimated.View>
+	);
+}
+
+
 export default function Layout() {
 	//* App storage
-	const InitDefaultSaveData = GLOBAL.useSaveStore((state) => state.initDefaultSaveData);
-	const WriteDefaultSaveToFile = GLOBAL.useSaveStore((state) => state.writeDefaultSaveToFile);
-	const LoadSave = GLOBAL.useSaveStore((state) => state.loadSave);
-	const IsSaveLoaded = GLOBAL.useSaveStore((state) => state.isSaveLoaded);
-	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
+	const InitDefaultSaveData = GLOBAL.useSaveStore(state => state.initDefaultSaveData);
+	const WriteDefaultSaveToFile = GLOBAL.useSaveStore(state => state.writeDefaultSaveToFile);
+	const LoadSave = GLOBAL.useSaveStore(state => state.loadSave);
+	const IsSaveLoaded = GLOBAL.useSaveStore(state => state.isSaveLoaded);
+	const WriteNewSaveToFile = GLOBAL.useSaveStore(state => state.writeNewSaveToFile);
 
-	const NeedsToGeolocate = GLOBAL.useSaveStore((state) => state.needToGeolocate);
-	const SetNeedsToGeolocate = GLOBAL.useSaveStore((state) => state.setNeedToGeolocate);
-	const ActiveTab = GLOBAL.useSaveStore((state) => state.activeTab);
-	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
-	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
-	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const SetHereCity = GLOBAL.useSaveStore((state) => state.setHereCity);
-	const SchedulePushNotifs = GLOBAL.useSaveStore((state) => state.schedulePushNotifs);
+	const PromptsCompleted = GLOBAL.useSaveStore(state => state.promptsCompleted);
+	const SetPromptCompleted = GLOBAL.useSaveStore(state => state.setPromptCompleted);
+	const NeedsToGeolocate = GLOBAL.useSaveStore(state => state.needToGeolocate);
+	const SetNeedsToGeolocate = GLOBAL.useSaveStore(state => state.setNeedToGeolocate);
+	const ScheduleNotifs = GLOBAL.useSaveStore(state => state.scheduleNotifs);
 
-	const [expoPushToken, setExpoPushToken] = useState("");
-	const [channels, setChannels] = useState<Notifications.NotificationChannel[]>([]);
-	const [notification, setNotification] = useState<Notifications.Notification | undefined>(undefined);
-	
+	const ActiveTab = GLOBAL.useSaveStore(state => state.activeTab);
+	const SetActiveTab = GLOBAL.useSaveStore(state => state.setActiveTab);
+	const ActiveBody = GLOBAL.useSaveStore(state => state.activeBody);
+	const SavedCities = GLOBAL.useSaveStore(state => state.savedCities);
+	const SetHereCity = GLOBAL.useSaveStore(state => state.setHereCity);
+
+
+	//* Meat and potatoes
+	const screenInsets = useSafeAreaInsets();
+
 	useEffect(() => {
-		// Saves
+		// Save
 		InitDefaultSaveData();
-		WriteDefaultSaveToFile(); //^ Save write
-		// LoadSave();
-		SavedCities.map(city => city.setNextBodyTime(ActiveBody!));
-
-		// Notifications
-		registerForPushNotificationsAsync().then(token => token && setExpoPushToken(token));
-		if (Platform.OS === "android") {
-			Notifications.getNotificationChannelsAsync().then(value => setChannels(value ?? []));
-		}
-		const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-			setNotification(notification);
-		});
-		const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-			console.log(response);
-		});
-		SchedulePushNotifs();
-		return () => {
-			notificationListener.remove();
-			responseListener.remove();
-		};
+		// WriteDefaultSaveToFile(); //^ Save write
+		LoadSave();
+		GLOBAL.screen.topOffset = screenInsets.top;
 	}, []);
 
-
-	//* Set safe area insets
-	/* const [areInsetsSet, setAreInsetsSet] = useState<boolean>(false);
-	const screenInsets = useSafeAreaInsets();
 	useEffect(() => {
-		GLOBAL.screen.topOffset = screenInsets.top;
-		GLOBAL.screen.bottomOffset = screenInsets.bottom;
-		setAreInsetsSet(true);
-	}, []); */
+		if (IsSaveLoaded) {
+			SavedCities.map(city => city.setNextBodyTimes(ActiveBody!));
+			ScheduleNotifs();
+			SetNeedsToGeolocate(true);
+		}
+	}, [IsSaveLoaded]);
 
 
 	//* Fonts
-	const [fontsLoaded] = useFonts({
-		"Trickster-Reg-Semi": require("../assets/fonts/Trickster/Trickster-Reg-Semi.otf"),
-		"Hades-TallFat": require("../assets/fonts/Hades/Hades-TallFat.ttf"),
-		"Hades-ShortFat": require("../assets/fonts/Hades/Hades-ShortFat.ttf"),
-		"Hades-ShortSkinny": require("../assets/fonts/Hades/Hades-ShortSkinny.ttf"),
+	const [fontsLoaded, fontsError] = useFonts({
+		"Trickster": require("../assets/fonts/Trickster/Trickster-Reg-Semi.otf"),
+		"Hades TallFat": require("../assets/fonts/Hades/Hades-TallFat.ttf"),
+		"Hades ShortFat": require("../assets/fonts/Hades/Hades-ShortFat.ttf"),
+		"Hades SuperShortFat": require("../assets/fonts/Hades/Hades-SuperShortFat.ttf"),
+		"Hades ShortSkinny": require("../assets/fonts/Hades/Hades-ShortSkinny.ttf"),
 	});
+
+
+	//* Tabs
+	const [tabBeingPressed, setTabBeingPressed] = useState<number | null>(null);
+	const tabBgColor = ActiveBody?.palette[2];
+	const tabPressedBgColor = ActiveBody?.palette[3];
+
+
+	//* Prompts + animations
+	// Location
+	const [isLocationBtnPressed, setIsLocationBtnPressed] = useState(false);
+	const [isLocationBtnActive, setIsLocationBtnActive] = useState(false);
+	const locationPromptProgress = useSharedValue(0);
+	const locationPromptAnimStyle = useAnimatedStyle(() => {
+		return {
+			display: (locationPromptProgress.value == 0) ? "none" : "flex",
+			opacity: locationPromptProgress.value,
+		}
+	});
+
+	// Notifications
+	const [isNotifBtnPressed, setIsNotifBtnPressed] = useState(false);
+	const [isNotifBtnActive, setIsNotifBtnActive] = useState(false);
+	const notifPromptProgress = useSharedValue((PromptsCompleted[0] && !PromptsCompleted[1]) ? 1 : 0);
+	const notifPromptAnimStyle = useAnimatedStyle(() => {
+		return {
+			display: (notifPromptProgress.value == 0) ? "none" : "flex",
+			opacity: notifPromptProgress.value,
+		}
+	});
+
+	// Body
+	const bodyProgress = useSharedValue(0);
+	const bodyAnimStyle = useAnimatedStyle(() => {
+		return {
+			display: (bodyProgress.value == 0) ? "none" : "flex",
+			opacity: bodyProgress.value,
+		}
+	});
+
+	useEffect(() => {
+		if (IsSaveLoaded) {
+			locationPromptProgress.value = withTiming(
+				(PromptsCompleted[0]) ? 0 : 1,
+				{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
+			);
+
+			if (PromptsCompleted[0] && !PromptsCompleted[1]) {
+				notifPromptProgress.value = withDelay(
+					1000 * GLOBAL.ui.animDuration,
+					withTiming(
+						1, { duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
+					)
+				);
+			}
+			else if (PromptsCompleted[0] && PromptsCompleted[1]) {
+				notifPromptProgress.value = withTiming(
+					0, { duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
+				);
+			}
+
+			bodyProgress.value = withDelay(
+				1000 * GLOBAL.ui.animDuration,
+				withTiming(
+					(PromptsCompleted[0] && PromptsCompleted[1]) ? 1 : 0,
+					{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
+				)
+			);
+		}
+	}, [IsSaveLoaded, PromptsCompleted]);
 
 
 	//* Geolocation
 	useEffect(() => {
 		if (NeedsToGeolocate) {
 			(async () => {
-				try {
-					const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-					if (status !== "granted") {
-						console.log("Permission to access location was denied");
-						return; // bail early
-					}
-
+				const { granted: locGranted } = await ExpoLocation.getForegroundPermissionsAsync();
+				if (locGranted) {
 					const position = await ExpoLocation.getCurrentPositionAsync({});
 					if (!position) {
 						console.log("Failed to get current position");
@@ -276,200 +393,357 @@ export default function Layout() {
 
 					const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
 					const city = new GLOBAL.City(name!, lat, lon);
-					city.setNextBodyTime(ActiveBody!);
+					city.setNextBodyTimes(ActiveBody!);
 					SetHereCity(city);
 					console.log("Geolocation was a success!");
-					SchedulePushNotifs();
-
 					WriteNewSaveToFile(); //^ Save write
-					SetNeedsToGeolocate(false);
+					ScheduleNotifs();
 				}
-				catch (err) {
-					console.error("Error fetching location:", err);
-				}
+				SetNeedsToGeolocate(false);
 			})();
 		}
 	}, [NeedsToGeolocate]);
 
 
-	//* Tabs
-	const [tabBeingPressed, setTabBeingPressed] = useState<number | null>(null);
-	const tabBgColor = ActiveBody?.palette[2];
-	const tabPressedBgColor = ActiveBody?.palette[3];
-
-
 	//* Components
 	return (
-		<View style={[styles.screen, { backgroundColor: ActiveBody?.palette[1] }]}>			
-			<StatusBar />
+		<View style={[styles.screen, { backgroundColor: ActiveBody?.palette[1] }]}>
+			<Reanimated.View style={[
+				{
+					position: "absolute",
+					alignItems: "center",
+					width: GLOBAL.screen.width,
+					height: GLOBAL.screen.height,
+				},
+				bodyAnimStyle
+			]}>
+				<StatusBar />
 
-			{/* Tab background */}
-			<Svg
-				style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
-				width={GLOBAL.slot.width}
-				height={GLOBAL.nav.height + 1}
-				viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
-			>
-				<Path
-					fill={GLOBAL.ui.palette[0]}
-					d="M 0,0 V 28.332031 C 0,30.54117 1.5075156,33.302376 3.4407579,34.370727 19.64974,43.328153 38.346903,45 50,45 61.582973,45 80.314327,43.348091 96.559726,34.370693 98.49297,33.30236 100,30.54117 100,28.332031 V 0 Z"
-				/>
-			</Svg>
-
-			{/* Tab decorations */}
-			{tabArray.map((tab, t) => (
-				<View
-					key={`tab${t}`}
+				{/* Tab background */}
+				<Svg
 					style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
-					pointerEvents="none"
+					width={GLOBAL.slot.width}
+					height={GLOBAL.nav.height + 1}
+					viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
 				>
-					{/* Tab fills */}
-					<Svg
-						style={[
-							{ width: "100%", height: "100%" },
-							(t !== ActiveTab && t !== tabBeingPressed) && GLOBAL.ui.btnShadowStyle()
-						]}
-						width={GLOBAL.slot.width}
-						height={GLOBAL.nav.height + 1}
-						viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
-					>
-						<Path
-							key={`tab-path${tab.key}`}
-							fill={(t == tabBeingPressed) ? tabPressedBgColor : tabBgColor }
-							d={tab.handlePath}
-						/>
-					</Svg>
-
-					{/* Tab aero states */}
-					<ExpoImage
-						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 0 : 1 }]}
-						source={tab.unpressedSrc}
-						contentFit="fill"
+					<Path
+						fill={GLOBAL.ui.palette[0]}
+						d="M 0,0 V 28.332031 C 0,30.54117 1.5075156,33.302376 3.4407579,34.370727 19.64974,43.328153 38.346903,45 50,45 61.582973,45 80.314327,43.348091 96.559726,34.370693 98.49297,33.30236 100,30.54117 100,28.332031 V 0 Z"
 					/>
-					<ExpoImage
-						style={[styles.tabImg, { opacity: (t === ActiveTab) ? 1 : 0 }]}
-						source={tab.pressedSrc}
-						contentFit="fill"
-					/>
+				</Svg>
 
-					{/* Tab icons */}
-					<Svg
-						style={[
-							styles.tabIcon,
-							tab.iconStyle,
-							GLOBAL.ui.btnShadowStyle(
-								(t !== ActiveTab) ? "down" : "middle",
-								(t !== ActiveTab) ? "black" : ActiveBody?.palette[1]
-							)
-						]}
-						viewBox="0 0 100 100"
-					>
-						<Path
-							fill={(t === ActiveTab) ? ActiveBody?.palette[0] : GLOBAL.ui.palette[0]}
-							stroke={(t === ActiveTab) ? ActiveBody?.palette[0] : GLOBAL.ui.palette[0]}
-							strokeWidth={2}
-							d={(t == 2) ? ActiveBody?.icon : tab.iconPath}
-						/>
-					</Svg>
+				{/* Tab decorations */}
+				{tabArray.map((tab, t) => {
+					const tabFillProgress = useSharedValue(0);
+
+					useEffect(() => {
+						tabFillProgress.value = withTiming(
+							(ActiveTab == t) ? 1 : 0,
+							{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+						);
+					}, [ActiveTab]);
+
+					const tabFillAnimStyle = useAnimatedProps(() => {
+						return {
+							fill: interpolateColor(
+								tabFillProgress.value,
+								[0, 1],
+								[tabBgColor!, tabPressedBgColor!]
+							),
+						}
+					});
+
+					const tabUnpressedImgAnimStyle = useAnimatedStyle(() => {
+						return { opacity: 1 - tabFillProgress.value }
+					});
+
+					const tabPressedImgAnimStyle = useAnimatedStyle(() => {
+						return { opacity: tabFillProgress.value }
+					});
+
+					const tabIconAnimStyle = useAnimatedProps(() => {
+						return {
+							fill: interpolateColor(
+								tabFillProgress.value,
+								[0, 1],
+								[GLOBAL.ui.palette[0], ActiveBody!.palette[0]]
+							),
+							stroke: interpolateColor(
+								tabFillProgress.value,
+								[0, 1],
+								[GLOBAL.ui.palette[0], ActiveBody!.palette[0]]
+							),
+						}
+					});
+
+					return (
+						<View
+							key={`tab${t}`}
+							style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
+							pointerEvents="none"
+						>
+							{/* Tab fills */}
+							<Svg
+								style={[
+									{ width: "100%", height: "100%" },
+									(t !== ActiveTab && t !== tabBeingPressed) && GLOBAL.ui.btnShadowStyle()
+								]}
+								width={GLOBAL.slot.width}
+								height={GLOBAL.nav.height + 1}
+								viewBox={`0 0 100 ${GLOBAL.nav.ratio * 100}`}
+							>
+								<ReanimatedPath
+									key={`tab-path${tab.key}`}
+									animatedProps={tabFillAnimStyle}
+									d={tab.handlePath}
+								/>
+							</Svg>
+
+							{/* Tab aero states */}
+							<ReanimatedExpoImage
+								style={[styles.tabImg, tabUnpressedImgAnimStyle]}
+								source={tab.unpressedSrc}
+								contentFit="fill"
+							/>
+							<ReanimatedExpoImage
+								style={[styles.tabImg, tabPressedImgAnimStyle]}
+								source={tab.pressedSrc}
+								contentFit="fill"
+							/>
+
+							{/* Tab icons */}
+							<Svg
+								style={[
+									styles.tabIcon,
+									tab.iconStyle,
+									GLOBAL.ui.btnShadowStyle(
+										(t !== ActiveTab) ? "down" : "middle",
+										(t !== ActiveTab) ? "black" : ActiveBody?.palette[1]
+									)
+								]}
+								viewBox="0 0 100 100"
+							>
+								<ReanimatedPath
+									animatedProps={tabIconAnimStyle}
+									strokeWidth={2}
+									d={(t == 2) ? ActiveBody?.icon : tab.iconPath}
+								/>
+							</Svg>
+						</View>
+					);
+				})}
+
+				{/* Slot mask */}
+				<MaskedView
+					style={styles.slotMask}
+					maskElement={
+						<Svg width={GLOBAL.slot.width} height={GLOBAL.slot.height} pointerEvents="none">
+							<Path d={`
+								M 0,${GLOBAL.slot.borderRadius}
+								v ${GLOBAL.slot.height - GLOBAL.slot.borderRadius - GLOBAL.slot.ellipseSemiMinor}
+								A ${GLOBAL.slot.ellipseSemiMajor} ${GLOBAL.slot.ellipseSemiMinor}
+									0 0 0 ${GLOBAL.slot.width},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
+								v ${-(GLOBAL.slot.height - GLOBAL.slot.borderRadius - GLOBAL.slot.ellipseSemiMinor)}
+								q 0,${-GLOBAL.slot.borderRadius} ${-GLOBAL.slot.borderRadius},${-GLOBAL.slot.borderRadius}
+								h ${-(GLOBAL.slot.width - 2 * GLOBAL.slot.borderRadius)}
+								q ${-GLOBAL.slot.borderRadius},0 ${-GLOBAL.slot.borderRadius},${GLOBAL.slot.borderRadius}
+								z
+							`}/>
+						</Svg>
+					}
+					pointerEvents="box-none"
+				>
+					<View style={styles.slotBG} pointerEvents="none"></View>
+
+					{/* <StarField /> */}
+
+					<Slot />
+					{/* <Stack screenOptions={{
+						headerShown: false,
+						animation: "fade_from_bottom",
+						animationDuration: 1000 * GLOBAL.ui.animDuration,
+						contentStyle: { backgroundColor: "black" },
+					}}/> */}
+				</MaskedView>
+
+				{/* Tab handles */}
+				<View
+					style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
+					pointerEvents="box-none"
+				>
+					{[2,1,3,0,4].map((t, i) => (
+						<Pressable
+							key={`tab-handle${i}`}
+							style={[
+								{ position: "absolute" },
+								(t == 0 || t == 3) && {
+									top: "31%",
+									left: (t == 0) ? "-1%" : "auto",
+									right: (t == 3) ? "-1%" : "auto",
+									width: 0.18 * GLOBAL.slot.width,
+									height: "50%",
+									// backgroundColor: "#f00a",
+									borderTopLeftRadius: "60%",
+									borderBottomLeftRadius: "40%",
+									transform: [
+										{ scaleX: (t == 3) ? -1 : 1 },
+										{ rotate: "-60deg" },
+									],
+								},
+								(t == 1) && {
+									bottom: "10%",
+									left: (t == 1) ? "13.5%" : "auto",
+									width: 0.25 * GLOBAL.slot.width,
+									height: "38%",
+									// backgroundColor: "#0f0a",
+									borderTopLeftRadius: "60%",
+									borderTopRightRadius: "10%",
+									borderBottomLeftRadius: "20%",
+									borderBottomRightRadius: "20%",
+									transform: [{ rotate: "14deg" }],
+								},
+								(t == 2) && {
+									right: "13%",
+									bottom: "6%",
+									width: 0.5 * GLOBAL.slot.width,
+									height: "39%",
+									// backgroundColor: "#00fa",
+									borderTopLeftRadius: "20%",
+									borderTopRightRadius: "40%",
+									borderBottomLeftRadius: "20%",
+									borderBottomRightRadius: "20%",
+									transform: [{ rotate: "-6deg" }],
+								},
+							]}
+							pointerEvents="auto"
+							onPressIn={() => {
+								if (t !== ActiveTab) {
+									setTabBeingPressed(t);
+								}
+							}}
+							onPress={() => {
+								if (t !== ActiveTab) {
+									SetActiveTab(t);
+									router.replace(tabArray[t].href);
+								}
+							}}
+							onPressOut={() => {
+								if (t !== ActiveTab) {
+									setTabBeingPressed(null);
+								}
+							}}
+						></Pressable>
+					))}
 				</View>
-			))}
+			</Reanimated.View>
 
-			{/* Slot mask */}
-			<MaskedView
-				style={styles.slotMask}
-				maskElement={
-					<Svg width={GLOBAL.slot.width} height={GLOBAL.slot.height} pointerEvents="none">
-						<Path d={`
-							M 0,${GLOBAL.slot.borderRadius}
-							v ${GLOBAL.slot.height - GLOBAL.slot.borderRadius - GLOBAL.slot.ellipseSemiMinor}
-							A ${GLOBAL.slot.ellipseSemiMajor} ${GLOBAL.slot.ellipseSemiMinor}
-								0 0 0 ${GLOBAL.slot.width},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}
-							v ${-(GLOBAL.slot.height - GLOBAL.slot.borderRadius - GLOBAL.slot.ellipseSemiMinor)}
-							q 0,${-GLOBAL.slot.borderRadius} ${-GLOBAL.slot.borderRadius},${-GLOBAL.slot.borderRadius}
-							h ${-(GLOBAL.slot.width - 2 * GLOBAL.slot.borderRadius)}
-							q ${-GLOBAL.slot.borderRadius},0 ${-GLOBAL.slot.borderRadius},${GLOBAL.slot.borderRadius}
-							z
-						`}/>
-					</Svg>
-				}
-				pointerEvents="box-none"
-			>
-				<View style={styles.slotBG} pointerEvents="none"></View>
-
-				{/* <StarField /> */}
-
-				<Slot />
-			</MaskedView>
-
-			{/* Tab handles */}
-			<View
-				style={[styles.tabContainer, { bottom: GLOBAL.screen.bottomOffset }]}
-				pointerEvents="box-none"
-			>
-				{[2,1,3,0,4].map((t, i) => (
-					<Pressable
-						key={`tab-handle${i}`}
-						style={[
-							{ position: "absolute" },
-							(t == 0 || t == 3) && {
-								top: "31%",
-								left: (t == 0) ? "-1%" : "auto",
-								right: (t == 3) ? "-1%" : "auto",
-								width: 0.18 * GLOBAL.slot.width,
-								height: "50%",
-								// backgroundColor: "#f00a",
-								borderTopLeftRadius: "60%",
-								borderBottomLeftRadius: "40%",
-								transform: [
-									{ scaleX: (t == 3) ? -1 : 1 },
-									{ rotate: "-60deg" },
-								],
-							},
-							(t == 1) && {
-								bottom: "10%",
-								left: (t == 1) ? "13.5%" : "auto",
-								width: 0.25 * GLOBAL.slot.width,
-								height: "38%",
-								// backgroundColor: "#0f0a",
-								borderTopLeftRadius: "60%",
-								borderTopRightRadius: "10%",
-								borderBottomLeftRadius: "20%",
-								borderBottomRightRadius: "20%",
-								transform: [{ rotate: "14deg" }],
-							},
-							(t == 2) && {
-								right: "13%",
-								bottom: "6%",
-								width: 0.5 * GLOBAL.slot.width,
-								height: "39%",
-								// backgroundColor: "#00fa",
-								borderTopLeftRadius: "20%",
-								borderTopRightRadius: "40%",
-								borderBottomLeftRadius: "20%",
-								borderBottomRightRadius: "20%",
-								transform: [{ rotate: "-6deg" }],
-							},
-						]}
-						pointerEvents="auto"
+			<Prompt
+				animStyle={notifPromptAnimStyle}
+				title="² Notifications"
+				img={require("../assets/images/prompts/notifications-shear.png")}
+				imgColor="#d4d5d0"
+				subtitles={[
+					`${Application.applicationName} can send push notifications to remind you when your next Pluto Time occurs.`,
+					"For the best experience, choose\n\"Allow\" when prompted."
+				]}
+				btn={
+					<RectBtn
+						text="Enable Notifications"
+						width={promptContentWidth}
+						height={promptBtnHeight}
+						borderRadius={GLOBAL.screen.horizOffset}
+						isPressed={isNotifBtnPressed}
+						isActive={isNotifBtnActive}
+						color={ActiveBody?.palette[2]}
+						pressedColor={ActiveBody?.palette[3]}
 						onPressIn={() => {
-							if (t !== ActiveTab) {
-								setTabBeingPressed(t);
-							}
+							setIsNotifBtnPressed(true);
 						}}
-						onPress={() => {
-							if (t !== ActiveTab) {
-								SetActiveTab(t);
-								router.replace(tabArray[t].href);
-							}
+						onPress={async () => {
+							await Notifications.requestPermissionsAsync();
+							SetPromptCompleted(1, true);
+							WriteNewSaveToFile(); //^ Save write
 						}}
 						onPressOut={() => {
-							if (t !== ActiveTab) {
-								setTabBeingPressed(null);
-							}
+							setIsNotifBtnPressed(false);
 						}}
-					></Pressable>
-				))}
-			</View>
+					/>
+				}
+				onNotNowPress={() => {
+					Alert.alert(
+						"Leave notifications disabled?",
+						"You'll need to open the app manually to know when your next Pluto Time occurs. Notifications can always be changed later in Settings.",
+						[
+							{
+								text: GLOBAL.ui.alertNo,
+								style: "cancel",
+							},
+							{
+								text: GLOBAL.ui.alertYes,
+								style: "destructive",
+								onPress: () => {
+									SetPromptCompleted(1, true);
+									WriteNewSaveToFile(); //^ Save write
+								}
+							},
+						]
+					);
+				}}
+			/>
+
+			<Prompt
+				animStyle={locationPromptAnimStyle}
+				title="¹ Location Access"
+				img={require("../assets/images/prompts/location-shear.png")}
+				imgColor="black"
+				subtitles={[
+					`${Application.applicationName} uses your latitude and longitude to determine your geolocation and timing information, kind of like a weather app.`,
+					`For the best experience, choose\n"Allow While Using App" when prompted.`
+				]}
+				btn={
+					<RectBtn
+						text="Enable Location Access"
+						width={promptContentWidth}
+						height={promptBtnHeight}
+						borderRadius={GLOBAL.screen.horizOffset}
+						isPressed={isLocationBtnPressed}
+						isActive={isLocationBtnActive}
+						color={ActiveBody?.palette[2]}
+						pressedColor={ActiveBody?.palette[3]}
+						onPressIn={() => {
+							setIsLocationBtnPressed(true);
+						}}
+						onPress={async () => {
+							await ExpoLocation.requestForegroundPermissionsAsync();
+							SetPromptCompleted(0, true);
+							WriteNewSaveToFile(); //^ Save write
+						}}
+						onPressOut={() => {
+							setIsLocationBtnPressed(false);
+						}}
+					/>
+				}
+				onNotNowPress={() => {
+					Alert.alert(
+						"Leave location access disabled?",
+						"You'll need to set your location manually. Location access can always be changed later in Settings.",
+						[
+							{
+								text: GLOBAL.ui.alertNo,
+								style: "cancel",
+							},
+							{
+								text: GLOBAL.ui.alertYes,
+								style: "destructive",
+								onPress: () => {
+									SetPromptCompleted(0, true);
+									WriteNewSaveToFile(); //^ Save write
+								}
+							},
+						]
+					);
+				}}
+			/>
 		</View>
 	);
 }

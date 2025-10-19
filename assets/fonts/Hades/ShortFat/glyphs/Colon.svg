@@ -12,5 +12,5 @@
    xmlns:svg="http://www.w3.org/2000/svg"><defs
      id="defs1" /><path
      id="rect3840"
-     style="display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.999998;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
-     d="m 0,19.5 v 5.5 H 5.5 V 19.5 Z m 0,6.5 V 31.5 h 5.5 v -5.5 z" /></svg>
+     style="fill:#000000;fill-opacity:1;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
+     d="m 0,14.5 v 10.5 h 5.5 v -10.5 z m 0,11.5 v 10.5 h 5.5 v -10.5 z" /></svg>

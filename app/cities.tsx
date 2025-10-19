@@ -1,19 +1,20 @@
 import AllCities from "@/ref/cities.json" with { type: "json" };
 import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow } from "@/ref/slot-shadows";
+import { CelestialBody } from "@/ref/solar-system";
 import { router } from "expo-router";
 import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Keyboard, KeyboardEvent, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
+import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { ClipPath, Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
 
 
 //* Reanimated
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedSvg = Animated.createAnimatedComponent(Svg);
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const ReanimatedPressable = Reanimated.createAnimatedComponent(Pressable);
+const ReanimatedSvg = Reanimated.createAnimatedComponent(Svg);
+const ReanimatedRect = Reanimated.createAnimatedComponent(Rect);
 
 
 //* City input
@@ -24,6 +25,7 @@ const svgIconDimension = 0.6 * cityInputHeight;
 
 //* City options
 const cityOptionHeight = 110;
+const cityOptionBorderRadius = GLOBAL.screen.horizOffset;
 const cityOptionDeleteBtnWidth = svgIconDimension + (3 * GLOBAL.ui.inputBorderWidth);
 const cityOptionDragBtnWidth = svgIconDimension + GLOBAL.ui.inputBorderWidth;
 const cityOptionMiddleBtnBaseWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
@@ -49,9 +51,10 @@ type CityOptionRowTypes = {
 	key: string,
 	city: GLOBAL.City,
 	index: number,
-	palette: string[],
+	activeBody: CelestialBody,
 	isEditingCities: boolean,
 	activeCityIndex: number,
+	isFormat24Hour: boolean,
 	onDeletePress: () => void,
 	onMiddlePress: () => void,
 	onHandlePress: () => void,
@@ -88,21 +91,76 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 			backgroundColor: interpolateColor(
 				cityOptionColorProgress.value,
 				[0, 1],
-				[props.palette[2], props.palette[3]]
+				[props.activeBody.palette[2], props.activeBody.palette[3]]
 			),
 		};
 	});
 
-	const svgAnimProps = useAnimatedProps(() => {
+	const widthAnimProps = useAnimatedProps(() => {
 		return { width: middleBtnWidth.value };
 	});
 
 	const bottomBlobAnimProps = useAnimatedProps(() => {
-		return { width: middleBtnWidth.value };
+		return { width: middleBtnWidth.value - (2 * GLOBAL.ui.inputBorderWidth) };
 	});
 
 	const topBlobAnimProps = useAnimatedProps(() => {
 		return { width: middleBtnWidth.value - (2 * GLOBAL.ui.inputBorderWidth) };
+	});
+
+	// Is body time now?
+	const [isBodyTimeNow, setIsBodyTimeNow] = useState(props.city.isBodyTimeNow());
+	useEffect(() => {
+		const untilBodyTime = props.city.nextBodyTimes[0].getTime() - Date.now();
+		
+		const scheduleBodyTime = setTimeout(() => {
+			setIsBodyTimeNow(true);
+		}, untilBodyTime);
+
+		const transpireBodyTime = setTimeout(() => {
+			props.city.setNextBodyTimes(props.activeBody);
+			setIsBodyTimeNow(false);
+		}, untilBodyTime + GLOBAL.bodyTimeLength);
+
+		return () => {
+			if (!isBodyTimeNow) {
+				clearTimeout(scheduleBodyTime);
+				clearTimeout(transpireBodyTime);
+			}
+		}
+	}, [props.city.nextBodyTimes, isBodyTimeNow]);
+
+	const nextBodyTimeProgress = useSharedValue((isBodyTimeNow) ? 0 : 1);
+	const nowProgress = useSharedValue((isBodyTimeNow) ? 1 : 0);
+	const bodyTimeAnimDuration = 2 * 1000 * GLOBAL.ui.animDuration;
+	useEffect(() => {
+		nextBodyTimeProgress.value = withDelay(
+			(isBodyTimeNow) ? 0 : bodyTimeAnimDuration,
+			withTiming(
+				(isBodyTimeNow) ? 0 : 1,
+				{ duration: bodyTimeAnimDuration, easing: Easing.linear }
+			)
+		);
+
+		nowProgress.value = withDelay(
+			(isBodyTimeNow) ? bodyTimeAnimDuration : 0,
+			withTiming(
+				(isBodyTimeNow) ? 1 : 0,
+				{ duration: bodyTimeAnimDuration, easing: Easing.linear }
+			)
+		);
+	}, [isBodyTimeNow]);
+
+	const nextBodyTimeAnimStyle = useAnimatedStyle(() => {
+		return { opacity: nextBodyTimeProgress.value }
+	});
+
+	const nowAnimStyle = useAnimatedStyle(() => {
+		return { opacity: nowProgress.value }
+	});
+
+	const strokeAnimProps = useAnimatedProps(() => {
+		return { stroke: interpolateColor(nowProgress.value, [0, 1], ["transparent", "white"]) }
 	});
 
 	return (
@@ -126,67 +184,99 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 					viewBox="0 0 100 100"
 				>
 					<Path
-						fill="#ff453a"
-						stroke="#ff453a"
+						fill={GLOBAL.ui.palette[2]}
+						stroke={GLOBAL.ui.palette[2]}
 						strokeWidth={2}
 						d="M 49.999512 12.46582 C 30.547566 12.46582 11.096372 24.976111 10.000488 49.999512 C 12.192257 100.04632 87.808231 100.04632 90 49.999512 C 88.904117 24.976111 69.451455 12.46582 49.999512 12.46582 z M 49.999512 14.10791 C 67.259685 14.10791 84.520194 26.071994 83.424316 49.999512 C 85.61608 97.854545 14.384403 97.854545 16.576172 49.999512 C 15.480286 26.071994 32.739336 14.10791 49.999512 14.10791 z M 29.0625 46.999512 L 29.0625 52.999512 C 43.020827 50.999516 56.97966 50.999516 70.937988 52.999512 L 70.937988 46.999512 C 56.97966 48.999514 43.020827 48.999514 29.0625 46.999512 z "
 					/>
 				</Svg>
 			</TouchableOpacity>
 
-			<AnimatedPressable
+			<ReanimatedPressable
 				style={[styles.cityOptionMiddleBtn, middleBtnAnimStyle]}
 				onPress={props.onMiddlePress}
 			>
-				<AnimatedSvg
+				<ReanimatedSvg
 					style={styles.citySvg}
 					height="100%"
-					animatedProps={svgAnimProps}
+					animatedProps={widthAnimProps}
 				>
 					<Defs>
 						<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
 							<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
 							<Stop offset="100%" stopColor="white" stopOpacity="0" />
 						</LinearGradient>
-
+	
 						<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%"
 							gradientTransform={`matrix(0.5, 0, 0, 1, ${0.25 * (GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset) - (2 * GLOBAL.ui.inputBorderWidth))}, 0)`}
 						>
 							<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
 							<Stop offset="100%" stopColor="white" stopOpacity="0" />
 						</RadialGradient>
-
+	
 						<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
 							<Stop offset="0%" stopColor="black" stopOpacity="0" />
 							<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
 						</LinearGradient>
+	
+						<ClipPath id="btn-clip">
+							<ReanimatedRect
+								fill="transparent"
+								x={0}
+								y={0}
+								animatedProps={widthAnimProps}
+								height={cityOptionHeight}
+								rx={cityOptionBorderRadius}
+							/>
+						</ClipPath>
 					</Defs>
-
-					<AnimatedRect
+	
+					<ReanimatedRect
 						fill="url(#bottom-blob)"
-						stroke="url(#stroke)"
-						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-						x={0}
-						y={0}
+						x={GLOBAL.ui.inputBorderWidth}
+						y={GLOBAL.ui.inputBorderWidth}
 						animatedProps={bottomBlobAnimProps}
-						height={cityOptionHeight}
-						rx={GLOBAL.screen.horizOffset}
+						height={cityOptionHeight - (2 * GLOBAL.ui.inputBorderWidth)}
+						rx={cityOptionBorderRadius - GLOBAL.ui.inputBorderWidth}
 					/>
-
-					<AnimatedRect
+	
+					<ReanimatedRect
 						fill="url(#top-blob)"
 						x={GLOBAL.ui.inputBorderWidth}
 						y={GLOBAL.ui.inputBorderWidth}
 						animatedProps={topBlobAnimProps}
 						height={2 * (GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth)}
-						rx={GLOBAL.screen.horizOffset - GLOBAL.ui.inputBorderWidth}
+						rx={cityOptionBorderRadius - GLOBAL.ui.inputBorderWidth}
 					/>
-				</AnimatedSvg>
+	
+					<ReanimatedRect
+						fill="transparent"
+						stroke="url(#stroke)"
+						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+						x={0}
+						y={0}
+						animatedProps={widthAnimProps}
+						height={cityOptionHeight}
+						rx={cityOptionBorderRadius}
+						clipPath="url(#btn-clip)"
+					/>
+
+					<ReanimatedRect
+						fill="transparent"
+						animatedProps={[strokeAnimProps, widthAnimProps]}
+						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
+						x={0}
+						y={0}
+						height={cityOptionHeight}
+						rx={cityOptionBorderRadius}
+						clipPath="url(#btn-clip)"
+					/>
+				</ReanimatedSvg>
 
 				<View style={[styles.cityOptionWrapper, GLOBAL.ui.btnShadowStyle()]}>
 					<View style={styles.cityNameContainer}>
 						<Text
-							style={[styles.cityName, { color: props.palette[0] }]}
+							style={[styles.cityName, { color: props.activeBody.palette[0] }]}
 							numberOfLines={1}
 						>{props.city.name}</Text>
 
@@ -201,12 +291,19 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 						<Text style={styles.cityLon}>{toDMS(props.city.lng, false)}</Text>
 					</View>
 
-					<View style={styles.cityTimeContainer}>
-						<Text style={styles.cityBodyTime}>{props.city.getClockTime()}</Text>
-						<Text style={[styles.cityBodyDate, { color: props.palette[0] }]}>{props.city.getDateShort()}</Text>
-					</View>
+					<Reanimated.View style={[styles.cityTimeContainer, nextBodyTimeAnimStyle]}>
+						<Text style={[
+							styles.cityBodyTime,
+							{ fontFamily: "Hades " + GLOBAL.ui.timeFonts[(props.isFormat24Hour) ? 2 : 3].name }
+						]}>
+							{(props.isFormat24Hour) ? props.city.get24HourClockTime() : props.city.get12HourClockTime()}
+						</Text>
+						<Text style={[styles.cityBodyDate, { color: props.activeBody.palette[0] }]}>{props.city.getDateShort()}</Text>
+					</Reanimated.View>
+
+					<Reanimated.Text style={[styles.now, nowAnimStyle]}>NOW!</Reanimated.Text>
 				</View>
-			</AnimatedPressable>
+			</ReanimatedPressable>
 
 			<Pressable
 				style={[
@@ -221,8 +318,8 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 					viewBox="0 0 100 100"
 				>
 					<Path
-						fill={props.palette[2]}
-						stroke={props.palette[2]}
+						fill={props.activeBody.palette[2]}
+						stroke={props.activeBody.palette[2]}
 						strokeWidth={2}
 						d="m 34.35534,10 -8.708645,8.632753 8.708645,8.783181 8.707289,-8.783181 z m 31.290676,0 -8.705933,8.632753 8.705933,8.783181 8.707289,-8.783181 z m -31.290677,31.293388 -8.708645,8.632753 8.708645,8.783181 8.70729,-8.783181 z m 31.290677,0 -8.705933,8.632753 8.705933,8.783181 8.707289,-8.783181 z M 34.355339,72.586776 25.646694,81.216818 34.355339,90 l 8.70729,-8.783182 z m 31.290677,0 -8.705933,8.630042 L 65.646016,90 74.353305,81.216818 Z"
 					/>
@@ -413,7 +510,6 @@ const styles = StyleSheet.create({
 
 	cityBodyTime: {
 		textAlign: "right",
-		fontFamily: "Hades-ShortSkinny",
 		fontSize: cityOptionTimeTextSize - GLOBAL.ui.bodyTextSize,
 		color: GLOBAL.ui.palette[0],
 	},
@@ -425,10 +521,18 @@ const styles = StyleSheet.create({
 		lineHeight: cityOptionDateTextSize,
 	},
 
+	now: {
+		position: "absolute",
+		right: GLOBAL.screen.horizOffset,
+		fontFamily: "Hades " + GLOBAL.ui.timeFonts[3].name,
+		fontSize: cityOptionTimeTextSize,
+		color: GLOBAL.ui.palette[0],
+	},
+
 	cityScrollSpacer: {
 		position: "relative",
 		width: "100%",
-		height: GLOBAL.slot.ellipseSemiMinor + GLOBAL.slot.shadowRadius,
+		height: GLOBAL.slot.ellipseSemiMinor + GLOBAL.slot.shadowRadius + ((cityOptionMiddleBtnBaseWidth * Math.abs(Math.tan(GLOBAL.ui.skewAngle * (Math.PI / 180)))) / 2),
 	},
 
 	cityOptionEditBtn: {
@@ -454,7 +558,8 @@ export default function CitiesScreen() {
 	const DeleteSavedCity = GLOBAL.useSaveStore((state) => state.deleteSavedCity);
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
 	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
-	const SchedulePushNotifs = GLOBAL.useSaveStore((state) => state.schedulePushNotifs);
+	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
+	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
 
 
 	//* Colors
@@ -521,9 +626,10 @@ export default function CitiesScreen() {
 			key: `city-option-row${newIndex}`,
 			city: city,
 			index: newIndex,
-			palette: ActiveBody!.palette,
+			activeBody: ActiveBody!,
 			isEditingCities: isEditingCities,
 			activeCityIndex: ActiveCityIndex,
+			isFormat24Hour: IsFormat24Hour,
 			onDeletePress: () => {
 				DeleteSavedCity(newIndex);
 				if (newIndex == ActiveCityIndex) SetActiveCityIndex(0);
@@ -531,7 +637,7 @@ export default function CitiesScreen() {
 			onMiddlePress: () => {
 				SetActiveCityIndex(newIndex);
 				WriteNewSaveToFile(); //^ Save write
-				SchedulePushNotifs();
+				ScheduleNotifs();
 				setTimeout(() => {
 					SetActiveTab(2);
 					router.replace("/");
@@ -549,9 +655,10 @@ export default function CitiesScreen() {
 				key: `city-option-row${newIndex}`,
 				city: city,
 				index: newIndex,
-				palette: ActiveBody!.palette,
+				activeBody: ActiveBody!,
 				isEditingCities: isEditingCities,
 				activeCityIndex: ActiveCityIndex,
+				isFormat24Hour: IsFormat24Hour,
 				onDeletePress: () => {
 					DeleteSavedCity(newIndex);
 					if (newIndex == ActiveCityIndex) SetActiveCityIndex(0);
@@ -559,7 +666,7 @@ export default function CitiesScreen() {
 				onMiddlePress: () => {
 					SetActiveCityIndex(newIndex);
 					WriteNewSaveToFile(); //^ Save write
-					SchedulePushNotifs();
+					ScheduleNotifs();
 					setTimeout(() => {
 						SetActiveTab(2);
 						router.replace("/");
@@ -578,9 +685,10 @@ export default function CitiesScreen() {
 				key={item.key}
 				city={item.city}
 				index={item.index}
-				palette={item.palette}
+				activeBody={ActiveBody!}
 				isEditingCities={isEditingCities}
 				activeCityIndex={ActiveCityIndex}
+				isFormat24Hour={IsFormat24Hour}
 				onDeletePress={item.onDeletePress}
 				onMiddlePress={item.onMiddlePress}
 				onHandlePress={drag}
@@ -608,7 +716,7 @@ export default function CitiesScreen() {
 						flexDirection: "row",
 						alignItems: "center"
 					}}>
-						<AnimatedPressable
+						<ReanimatedPressable
 							style={[styles.cityInputWrapper, cityInputWrapperAnimStyle]}
 							onPress={() => {
 								cityInputRef.current?.focus();
@@ -643,9 +751,9 @@ export default function CitiesScreen() {
 								}}
 							>
 							</TextInput>
-						</AnimatedPressable>
+						</ReanimatedPressable>
 
-						<Animated.View
+						<Reanimated.View
 							style={[styles.cityInputCancelBtnContainer, cityInputFadeAnimStyle]}
 							onLayout={(evt) => {
 								const layout = evt.nativeEvent.layout;
@@ -664,10 +772,10 @@ export default function CitiesScreen() {
 									{ color: bodyTextColor, borderBottomColor: bodyTextColor }
 								]}>Cancel</Text>
 							</TouchableOpacity>
-						</Animated.View>
+						</Reanimated.View>
 					</View>
 
-					<Animated.View style={[styles.cityResultScrollViewContainer, cityInputFadeAnimStyle]}>
+					<Reanimated.View style={[styles.cityResultScrollViewContainer, cityInputFadeAnimStyle]}>
 						<ScrollView
 							ref={cityResultScrollViewRef}
 							style={[
@@ -687,7 +795,7 @@ export default function CitiesScreen() {
 									style={styles.cityResult}
 									onPress={() => {
 										const newCity = new GLOBAL.City(city.name, city.lat, city.lng);
-										newCity.setNextBodyTime(ActiveBody!);
+										newCity.setNextBodyTimes(ActiveBody!);
 										PushSavedCity(newCity);
 										WriteNewSaveToFile(); //^ Save write
 										cityInputRef.current?.blur();
@@ -701,7 +809,7 @@ export default function CitiesScreen() {
 								</TouchableOpacity>
 							))}
 						</ScrollView>
-					</Animated.View>
+					</Reanimated.View>
 				</View>
 
 				<DraggableFlatList
@@ -718,13 +826,15 @@ export default function CitiesScreen() {
 							key="city-option-row0"
 							city={SavedCities[0]}
 							index={0}
-							palette={ActiveBody!.palette}
+							activeBody={ActiveBody!}
 							isEditingCities={isEditingCities}
 							activeCityIndex={ActiveCityIndex}
+							isFormat24Hour={IsFormat24Hour}
 							onDeletePress={() => {}}
 							onMiddlePress={() => {
 								SetActiveCityIndex(0);
 								WriteNewSaveToFile(); //^ Save write
+								ScheduleNotifs();
 								setTimeout(() => {
 									SetActiveTab(2);
 									router.replace("/");

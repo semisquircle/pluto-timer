@@ -1,16 +1,19 @@
 import * as GLOBAL from "@/ref/global";
 import { SlotTopShadow } from "@/ref/slot-shadows";
 import { Image as ExpoImage } from "expo-image";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
+import Reanimated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import { withPause } from "react-native-redash";
 import { Defs, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
+
+const ReaniamtedExpoImage = Reanimated.createAnimatedComponent(ExpoImage);
 
 //* Body
 const bodyFrameWidth = 20;
 const bodyFrameHeight = 20;
 const totalBodyFrames = bodyFrameWidth * bodyFrameHeight;
-const bodyAnimFPS = 30;
 
 
 export default function HomeScreen() {
@@ -19,13 +22,7 @@ export default function HomeScreen() {
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
 	const ActiveCity = SavedCities[ActiveCityIndex];
-
-
-	//! Is body time now? (could use refactoring)
-	const [isBodyTimeNow, setIsBodyTimeNow] = useState(false);
-	useEffect(() => {
-		setIsBodyTimeNow(ActiveCity.isBodyTimeNow());
-	});
+	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
 
 
 	//* Colors
@@ -40,30 +37,41 @@ export default function HomeScreen() {
 	const ringMajorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMajorAxis;
 	const ringMinorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMinorAxis;
 
+	const [isStarsImgDisplayed, setIsStarsImgDisplayed] = useState<boolean>(false);
 	const [isBodyPlaceholderImgDisplayed, setIsBodyPlaceholderImgDisplayed] = useState<boolean>(false);
 	const [isBodySpriteSheetDisplayed, setIsBodySpriteSheetDisplayed] = useState<boolean>(false);
-	const bodyIntervalRef = useRef<any>(null);
-	const [bodyFrame, setBodyFrame] = useState<number>(0);
-	const [isDraggingBody, setIsDraggingBody] = useState<boolean>(false);
-	const dragStartFrameRef = useRef(0);
-	const dragStartXRef = useRef(0);
-	const dragStartYRef = useRef(0);
 
-	// Ensures negative frame numbers get wrapped back around
-	const modFrame = (n: number) => ((n % totalBodyFrames) + totalBodyFrames) % totalBodyFrames;
+	const bodyFrame = useSharedValue(0);
+	const bodyFrameOffset = useSharedValue(0);
+	const lastBodyFrameOffset = useSharedValue(0);
+	const dragStartX = useSharedValue(0);
+	const dragStartY = useSharedValue(0);
+	const isDraggingBody = useSharedValue(false);
 
 	useEffect(() => {
-		if (isBodySpriteSheetDisplayed && !isDraggingBody) {
-			bodyIntervalRef.current = setInterval(() => {
-				setBodyFrame(prev => modFrame(prev + 1));
-			}, 1000 / bodyAnimFPS);
+		if (isBodySpriteSheetDisplayed) {
+			bodyFrame.value = withPause(
+				withRepeat(
+					withTiming(
+						totalBodyFrames - 1,
+						{ duration: (1000 / GLOBAL.ui.fps) * totalBodyFrames, easing: Easing.linear }
+					),
+					-1,
+					false
+				),
+				isDraggingBody
+			);
 		}
-		else clearInterval(bodyIntervalRef.current);
-
-		dragStartFrameRef.current = bodyFrame;
-
-		return () => clearInterval(bodyIntervalRef.current);
 	}, [isBodySpriteSheetDisplayed, isDraggingBody]);
+	
+	const bodySpriteSheetAnimStyle = useAnimatedStyle(() => {
+		const modFrame = (f: number) => ((f % totalBodyFrames) + totalBodyFrames) % totalBodyFrames;
+		const frameInt = modFrame(Math.round(bodyFrame.value + bodyFrameOffset.value));
+		return {
+			left: -(frameInt % bodyFrameWidth) * ringMajorAxis,
+			top: -Math.floor(frameInt / bodyFrameWidth) * ringMinorAxis,
+		};
+	});
 
 	const bodyPanResponder = useRef(
 		PanResponder.create({
@@ -77,25 +85,20 @@ export default function HomeScreen() {
 				return Math.sqrt(x**2 + y**2) <= r; //? Only accept touches inside ellipse
 			},
 			onPanResponderGrant: (evt) => {
-				setIsDraggingBody(true);
-				dragStartXRef.current = evt.nativeEvent.pageX;
-				dragStartYRef.current = evt.nativeEvent.pageY;
+				isDraggingBody.value = true;
+				dragStartX.value = evt.nativeEvent.pageX;
+				dragStartY.value = evt.nativeEvent.pageY;
 			},
 			onPanResponderMove: (evt) => {
-				const dragCurrentX = evt.nativeEvent.pageX;
-				const dragCurrentY = evt.nativeEvent.pageY;
-				const dx = dragCurrentX - dragStartXRef.current;
-				const dy = dragCurrentY - dragStartYRef.current;
-
-				// Axial tilt in radians (negative because screen Y increases downward)
+				const dx = evt.nativeEvent.pageX - dragStartX.value;
+				const dy = evt.nativeEvent.pageY - dragStartY.value;
 				const theta = (ActiveBody?.axialTilt ?? 0) * (Math.PI / 180);
-				const dragAlongTilt = (dx * Math.cos(theta)) + (dy * Math.sin(theta));
-
-				const dragChangeXAdjusted = Math.round(-dragAlongTilt / 2); // Negative to match original direction
-				setBodyFrame(modFrame(dragStartFrameRef.current - dragChangeXAdjusted));
+				const offsetAlongTilt = dx * Math.cos(theta) + dy * Math.sin(theta);
+				bodyFrameOffset.value = (lastBodyFrameOffset.value + offsetAlongTilt / 2) % totalBodyFrames;
 			},
 			onPanResponderRelease: () => {
-				setIsDraggingBody(false);
+				lastBodyFrameOffset.value = bodyFrameOffset.value;
+				isDraggingBody.value = false;
 			},
 		})
 	).current;
@@ -112,62 +115,126 @@ export default function HomeScreen() {
 	const fingerTranslateDuration = 1;
 	const fingerAnimInterval = 30;
 
-	const fingerOpacity = useRef(new Animated.Value(0)).current;
-	const fingerTranslate = useRef(new Animated.Value(0)).current;
+	const fingerOpacity = useSharedValue(0);
+	const fingerTranslateProgress = useSharedValue(0);
 
 	useEffect(() => {
-		const animateFinger = () => {
-			fingerOpacity.setValue(0);
-			fingerTranslate.setValue(0);
+		fingerOpacity.value = withRepeat(
+			withSequence(
+				withDelay(1000 * fingerAnimInterval, withTiming(0)),
+				withTiming(1, { duration: 1000 * fingerFadeDuration }),
+				withTiming(1, { duration: 1000 * fingerTranslateDuration }),
+				withTiming(0, { duration: 1000 * fingerFadeDuration }),
+			),
+			-1,
+			false
+		);
 
-			Animated.sequence([
-				Animated.timing(fingerOpacity, {
-					toValue: 1,
-					duration: fingerFadeDuration * 1000,
-					useNativeDriver: true,
-				}),
-				Animated.timing(fingerTranslate, {
-					toValue: 1,
-					duration: fingerTranslateDuration * 1000,
-					useNativeDriver: true,
-				}),
-				Animated.timing(fingerOpacity, {
-					toValue: 0,
-					duration: fingerFadeDuration * 1000,
-					useNativeDriver: true,
-				}),
-			]).start(() => {
-				setTimeout(animateFinger, fingerAnimInterval * 1000);
-			});
-		};
-
-		// animateFinger();
-
-		const initialTimeout = setTimeout(animateFinger, fingerAnimInterval * 1000);
-		return () => clearTimeout(initialTimeout);
+		fingerTranslateProgress.value = withRepeat(
+			withSequence(
+				withDelay(1000 * fingerAnimInterval, withTiming(0)),
+				withTiming(0, { duration: 1000 * fingerFadeDuration }),
+				withTiming(1, { duration: 1000 * fingerTranslateDuration }),
+				withTiming(1, { duration: 1000 * fingerFadeDuration }),
+			),
+			-1,
+			false
+		);
 	}, []);
+
+	const fingerAnimStyle = useAnimatedStyle(() => {
+		return {
+			opacity: fingerOpacity.value,
+			transform: [
+				{ translateX: ((fingerTranslateProgress.value * fingerTranslateDistance) - (fingerTranslateDistance / 2)) * fingerDx },
+				{ translateY: ((fingerTranslateProgress.value * fingerTranslateDistance) - (fingerTranslateDistance / 2)) * fingerDy },
+			],
+		};
+	});
 
 
 	//* Text fitting
-	const nextBodyTime = ActiveCity.getClockTime();
-	const nextBodyTimeText = isBodyTimeNow ? "NOW!" : nextBodyTime;
-	const nextBodyDate = ActiveCity.getDateLong();
-	const bodyTimeFont = GLOBAL.ui.timeFonts[isBodyTimeNow ? 1 : 0];
+	const getFontSize = (text: string, font: GLOBAL.TimeFont, padding: number) => {
+		const width = text.split("").reduce((w, char, i) => {
+			const glyph = font.glyph_widths.find(g => g.char === char);
+			return w + glyph!.width + ((i < text.length - 1) ? font.spacing : 0);
+		}, 0);
+		return ((GLOBAL.slot.width - (2 * padding)) / width) * font.glyph_height;
+	}
 
-	const nextBodyTimeWidth = useMemo(() => {
-		return nextBodyTimeText.split("").reduce((w, char, i) =>
-			w + bodyTimeFont.glyphWidths[char as keyof typeof bodyTimeFont.glyphWidths] +
-			(i < nextBodyTimeText.length - 1 ? bodyTimeFont.spacing : 0)
-		, 0);
-	}, [nextBodyTimeText]);
+	const nextBodyTime = (IsFormat24Hour) ? ActiveCity.get24HourClockTime() : ActiveCity.get12HourClockTime();
+	// const nextBodyTime = "1:11PM";
+	const num1s = nextBodyTime.split("1").length - 1;
+	const nextBodyDate = ActiveCity.getDateLong();
+	const nextBodyTimeFont = GLOBAL.ui.timeFonts[(IsFormat24Hour) ? 2 : (num1s >= 2) ? 1 : 0];
+	const nextBodyTimeFontSize = getFontSize(nextBodyTime, nextBodyTimeFont, GLOBAL.screen.horizOffset);
+
+	const nowFont = GLOBAL.ui.timeFonts[1];
+	const nowFontSize = getFontSize("NOW!", nowFont, 2 * GLOBAL.screen.horizOffset);
 
 	const locationNameTextOffset = GLOBAL.screen.horizOffset;
 	const locationNameTextSize =
-		(ActiveCity.name.length > 20) ? GLOBAL.ui.bodyTextSize :
-		(ActiveCity.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize :
-		2 * GLOBAL.ui.bodyTextSize;
+		(ActiveCity.name.length > 20) ? GLOBAL.ui.bodyTextSize
+		: (ActiveCity.name.length > 10) ? 1.5 * GLOBAL.ui.bodyTextSize
+		: 2 * GLOBAL.ui.bodyTextSize;
 	const youAreHereTextOffset = locationNameTextOffset + locationNameTextSize + 3;
 	const youAreHereTextSize = 0.6 * GLOBAL.ui.bodyTextSize;
+
+
+	//* Is body time now?
+	const [isBodyTimeNow, setIsBodyTimeNow] = useState(ActiveCity.isBodyTimeNow());
+	useEffect(() => {
+		const untilBodyTime = ActiveCity.nextBodyTimes[0].getTime() - Date.now();
+		
+		const scheduleBodyTime = setTimeout(() => {
+			setIsBodyTimeNow(true);
+		}, untilBodyTime);
+
+		const transpireBodyTime = setTimeout(() => {
+			ActiveCity.setNextBodyTimes(ActiveBody!);
+			setIsBodyTimeNow(false);
+		}, untilBodyTime + GLOBAL.bodyTimeLength);
+
+		return () => {
+			if (!isBodyTimeNow) {
+				clearTimeout(scheduleBodyTime);
+				clearTimeout(transpireBodyTime);
+			}
+		}
+	}, [ActiveCity.nextBodyTimes, isBodyTimeNow]);
+
+	const nextBodyTimeProgress = useSharedValue((isBodyTimeNow) ? 0 : 1);
+	const nowProgress = useSharedValue((isBodyTimeNow) ? 1 : 0);
+	const bodyTimeAnimDuration = 2 * 1000 * GLOBAL.ui.animDuration;
+	useEffect(() => {
+		nextBodyTimeProgress.value = withDelay(
+			(isBodyTimeNow) ? 0 : bodyTimeAnimDuration,
+			withTiming(
+				(isBodyTimeNow) ? 0 : 1,
+				{ duration: bodyTimeAnimDuration, easing: Easing.linear }
+			)
+		);
+
+		nowProgress.value = withDelay(
+			(isBodyTimeNow) ? bodyTimeAnimDuration : 0,
+			withTiming(
+				(isBodyTimeNow) ? 1 : 0,
+				{ duration: bodyTimeAnimDuration, easing: Easing.linear }
+			)
+		);
+	}, [isBodyTimeNow]);
+
+	const starsAnimStyle = useAnimatedStyle(() => {
+		return { opacity: interpolate(nowProgress.value, [0, 1], [0, 0.5]) }
+	});
+
+	const nextBodyTimeAnimStyle = useAnimatedStyle(() => {
+		return { opacity: nextBodyTimeProgress.value }
+	});
+
+	const nowAnimStyle = useAnimatedStyle(() => {
+		return { opacity: nowProgress.value }
+	});
 
 
 	//* Stylesheet
@@ -175,9 +242,15 @@ export default function HomeScreen() {
 		content: {
 			justifyContent: "center",
 			alignItems: "center",
-			width: GLOBAL.slot.width,
 			height: GLOBAL.slot.height,
 			overflow: "hidden",
+		},
+
+		stars: {
+			position: "absolute",
+			top: 0,
+			width: 0.7 * GLOBAL.slot.height,
+			height: GLOBAL.slot.height,
 		},
 
 		bodySpriteSheetContainer: {
@@ -192,7 +265,7 @@ export default function HomeScreen() {
 			position: "absolute",
 			width: bodyMajorAxis,
 			height: bodyMinorAxis,
-			backgroundColor: ActiveBody?.palette[2],
+			backgroundColor: ActiveBody?.colors[2],
 			borderRadius: "50%",
 		},
 
@@ -204,8 +277,6 @@ export default function HomeScreen() {
 
 		bodySpriteSheetWrapper: {
 			position: "absolute",
-			left: -(bodyFrame % bodyFrameWidth) * ringMajorAxis,
-			top: -Math.floor(bodyFrame / bodyFrameWidth) * ringMinorAxis,
 			width: bodyFrameWidth * ringMajorAxis,
 			height: bodyFrameHeight * ringMinorAxis,
 		},
@@ -221,27 +292,6 @@ export default function HomeScreen() {
 			top: 0.2 * GLOBAL.slot.width,
 			width: 0.25 * GLOBAL.slot.width,
 			height: 0.25 * GLOBAL.slot.width,
-			opacity: fingerOpacity,
-			transform: [
-				{
-					translateX: fingerTranslate.interpolate({
-						inputRange: [0, 1],
-						outputRange: [
-							-(fingerTranslateDistance / 2) * fingerDx,
-							(fingerTranslateDistance / 2) * fingerDx
-						],
-					}),
-				},
-				{
-					translateY: fingerTranslate.interpolate({
-						inputRange: [0, 1],
-						outputRange: [
-							-(fingerTranslateDistance / 2) * fingerDy,
-							(fingerTranslateDistance / 2) * fingerDy
-						],
-					}),
-				},
-			],
 			zIndex: 9999,
 		},
 
@@ -250,11 +300,12 @@ export default function HomeScreen() {
 			height: "100%",
 		},
 
-		timeContainer: {
+		nextBodyTimeContainer: {
 			position: "absolute",
 			justifyContent: "center",
 			alignItems: "center",
 			top: bodyMinorAxis / 2,
+			width: "100%",
 			height: GLOBAL.slot.height - (bodyMinorAxis / 2) - (youAreHereTextOffset + youAreHereTextSize),
 		},
 
@@ -266,7 +317,7 @@ export default function HomeScreen() {
 			color: GLOBAL.ui.palette[0],
 		},
 
-		bodyTimeText: {
+		bodyTimeName: {
 			fontFamily: "Trickster-Reg-Semi",
 			color: bodyTextColor,
 		},
@@ -274,8 +325,26 @@ export default function HomeScreen() {
 		nextBodyTime: {
 			width: "100%",
 			textAlign: "center",
-			fontFamily: bodyTimeFont.name,
-			fontSize: ((GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset)) / nextBodyTimeWidth) * bodyTimeFont.glyphHeight,
+			fontFamily: "Hades " + nextBodyTimeFont.name,
+			fontSize: nextBodyTimeFontSize,
+			marginVertical: GLOBAL.screen.horizOffset,
+			color: GLOBAL.ui.palette[0],
+		},
+
+		nowContainer: {
+			position: "absolute",
+			justifyContent: "center",
+			alignItems: "center",
+			top: bodyMinorAxis / 2,
+			width: "100%",
+			height: GLOBAL.slot.height - (bodyMinorAxis / 2) - (youAreHereTextOffset + youAreHereTextSize),
+		},
+
+		now: {
+			width: "100%",
+			textAlign: "center",
+			fontFamily: "Hades " + nowFont.name,
+			fontSize: nowFontSize,
 			marginVertical: GLOBAL.screen.horizOffset,
 			color: GLOBAL.ui.palette[0],
 		},
@@ -311,9 +380,17 @@ export default function HomeScreen() {
 	//* Components
 	return (
 		<View style={styles.content}>
+			<ReaniamtedExpoImage
+				style={[styles.stars, starsAnimStyle]}
+				source={require("../assets/images/stars/stars-combined-compressed.png")}
+				onDisplay={() => {
+					setIsStarsImgDisplayed(true);
+				}}
+			/>
+
 			<View style={styles.bodySpriteSheetContainer} {...bodyPanResponder.panHandlers}>
 				{(!isBodyPlaceholderImgDisplayed) &&
-					<View style={styles.bodyPlaceholder}></View>
+					<View style={[styles.bodyPlaceholder, GLOBAL.ui.btnShadowStyle()]}></View>
 				}
 
 				{(!isBodySpriteSheetDisplayed) &&
@@ -326,8 +403,8 @@ export default function HomeScreen() {
 					/>
 				}
 
-				{(isBodyPlaceholderImgDisplayed) &&
-					<Animated.View style={[styles.bodySpriteSheetWrapper]}>
+				{(isStarsImgDisplayed && isBodyPlaceholderImgDisplayed) &&
+					<Reanimated.View style={[styles.bodySpriteSheetWrapper, bodySpriteSheetAnimStyle]}>
 						<ExpoImage
 							style={styles.bodySpriteSheetImg}
 							source={ActiveBody?.spriteSheet}
@@ -335,31 +412,43 @@ export default function HomeScreen() {
 								setIsBodySpriteSheetDisplayed(true);
 							}}
 						/>
-					</Animated.View>
+					</Reanimated.View>
 				}
 			</View>
 
-			<Animated.View style={styles.finger} pointerEvents="none">
+			<Reanimated.View style={[styles.finger, fingerAnimStyle]} pointerEvents="none">
 				<ExpoImage style={styles.fingerImg} source={require("../assets/images/finger.png")} />
-			</Animated.View>
+			</Reanimated.View>
 
-			<View style={[styles.timeContainer, GLOBAL.ui.skewStyle, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">
+			<Reanimated.View
+				style={[styles.nextBodyTimeContainer, GLOBAL.ui.skewStyle, nextBodyTimeAnimStyle]}
+				pointerEvents="none"
+			>
 				<Text style={styles.nextText}>
-					{isBodyTimeNow ? "It's " : "Your next "}
-					<Text style={styles.bodyTimeText}>{ActiveBody?.name} Time</Text>
-					{isBodyTimeNow ? "" : " will occur at"}
-				</Text>
-
-				<Text style={styles.nextBodyTime} numberOfLines={1}>
-					{isBodyTimeNow ? "NOW!" : nextBodyTime}
-				</Text>
-
-				{!isBodyTimeNow && (
-					<Text style={styles.dateText}>
-						on <Text style={styles.nextBodyDate}>{nextBodyDate}</Text>
+					{"Your next "}
+					<Text style={styles.bodyTimeName}>
+						{(ActiveBody?.name == "Terra") ? "Solar Noon" : `${ActiveBody?.name} Time`}
 					</Text>
-				)}
-			</View>
+					{" will occur at"}
+				</Text>
+				<Text style={styles.nextBodyTime} numberOfLines={1}>{nextBodyTime}</Text>
+				<Text style={styles.dateText}>
+					on <Text style={styles.nextBodyDate}>{nextBodyDate}</Text>
+				</Text>
+			</Reanimated.View>
+
+			<Reanimated.View
+				style={[styles.nowContainer, GLOBAL.ui.skewStyle, GLOBAL.ui.btnShadowStyle(), nowAnimStyle]}
+				pointerEvents="none"
+			>
+				<Text style={[styles.nextText, { fontSize: 1.5 * GLOBAL.ui.bodyTextSize }]}>
+					{"It's "}
+					<Text style={styles.bodyTimeName}>
+						{(ActiveBody?.name == "Terra") ? "Solar Noon" : `${ActiveBody?.name} Time`}
+					</Text>
+				</Text>
+				<Text style={styles.now} numberOfLines={1}>NOW!</Text>
+			</Reanimated.View>
 
 			{/* Curved city text */}
 			<View style={[styles.cityTextContainer, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">

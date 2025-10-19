@@ -1,0 +1,110 @@
+[
+	{
+		"name": "TallFat",
+		"spacing": 1,
+		"glyph_height": 57.5,
+		"glyph_widths": [
+			{ "char": "0", "width": 12 },
+			{ "char": "1", "width": 5.5 },
+			{ "char": "2", "width": 12 },
+			{ "char": "3", "width": 12 },
+			{ "char": "4", "width": 12 },
+			{ "char": "5", "width": 12 },
+			{ "char": "6", "width": 12 },
+			{ "char": "7", "width": 12 },
+			{ "char": "8", "width": 12 },
+			{ "char": "9", "width": 12 },
+
+			{ "char": "A", "width": 12 },
+			{ "char": "M", "width": 18.5 },
+			{ "char": "N", "width": 18.5 },
+			{ "char": "O", "width": 12 },
+			{ "char": "P", "width": 12 },
+			{ "char": "W", "width": 18.5 },
+
+			{ "char": ":", "width": 5.5 },
+			{ "char": "!", "width": 5.5 }
+		]
+	},
+	{
+		"name": "ShortFat",
+		"spacing": 1,
+		"glyph_height": 44.5,
+		"glyph_widths": [
+			{ "char": "0", "width": 12 },
+			{ "char": "1", "width": 5.5 },
+			{ "char": "2", "width": 12 },
+			{ "char": "3", "width": 12 },
+			{ "char": "4", "width": 12 },
+			{ "char": "5", "width": 12 },
+			{ "char": "6", "width": 12 },
+			{ "char": "7", "width": 12 },
+			{ "char": "8", "width": 12 },
+			{ "char": "9", "width": 12 },
+
+			{ "char": "A", "width": 12 },
+			{ "char": "M", "width": 18.5 },
+			{ "char": "N", "width": 18.5 },
+			{ "char": "O", "width": 12 },
+			{ "char": "P", "width": 12 },
+			{ "char": "W", "width": 18.5 },
+
+			{ "char": ":", "width": 5.5 },
+			{ "char": "!", "width": 5.5 }
+		]
+	},
+	{
+		"name": "SuperShortFat",
+		"spacing": 1,
+		"glyph_height": 31.5,
+		"glyph_widths": [
+			{ "char": "0", "width": 12 },
+			{ "char": "1", "width": 5.5 },
+			{ "char": "2", "width": 12 },
+			{ "char": "3", "width": 12 },
+			{ "char": "4", "width": 12 },
+			{ "char": "5", "width": 12 },
+			{ "char": "6", "width": 12 },
+			{ "char": "7", "width": 12 },
+			{ "char": "8", "width": 12 },
+			{ "char": "9", "width": 12 },
+
+			{ "char": "A", "width": 12 },
+			{ "char": "M", "width": 18.5 },
+			{ "char": "N", "width": 18.5 },
+			{ "char": "O", "width": 12 },
+			{ "char": "P", "width": 12 },
+			{ "char": "W", "width": 18.5 },
+
+			{ "char": ":", "width": 5.5 },
+			{ "char": "!", "width": 5.5 }
+		]
+	},
+	{
+		"name": "ShortSkinny",
+		"spacing": 1.5,
+		"glyph_height": 51.5,
+		"glyph_widths": [
+			{ "char": "0", "width": 12.5 },
+			{ "char": "1", "width": 5.5 },
+			{ "char": "2", "width": 12.5 },
+			{ "char": "3", "width": 12.5 },
+			{ "char": "4", "width": 12.5 },
+			{ "char": "5", "width": 12.5 },
+			{ "char": "6", "width": 12.5 },
+			{ "char": "7", "width": 12.5 },
+			{ "char": "8", "width": 12.5 },
+			{ "char": "9", "width": 12.5 },
+
+			{ "char": "A", "width": 12.5 },
+			{ "char": "M", "width": 19.5 },
+			{ "char": "N", "width": 19.5 },
+			{ "char": "O", "width": 12.5 },
+			{ "char": "P", "width": 12.5 },
+			{ "char": "W", "width": 19.5 },
+
+			{ "char": ":", "width": 5.5 },
+			{ "char": "!", "width": 5.5 }
+		]
+	}
+]
