@@ -51,3 +51,8 @@ assets/fonts/Trickster/svg
 **/*.sfd
 **/*.sh
 **/*.ipa
+assets/images/finger-original.png
+
+assets/images/prompts/*
+!assets/images/prompts/location-shear.png
+!assets/images/prompts/notifications-shear.png
