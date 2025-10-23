@@ -1,5 +1,5 @@
+import { RectBtn } from "@/ref/btns";
 import * as GLOBAL from "@/ref/global";
-import { RectBtn } from "@/ref/rect-btn";
 // import StarField from "@/ref/star-field";
 import MaskedView from "@react-native-masked-view/masked-view";
 import * as Application from "expo-application";
@@ -113,6 +113,60 @@ const styles = StyleSheet.create({
 		height: GLOBAL.screen.height,
 	},
 
+	prompt: {
+		position: "absolute",
+		justifyContent: "space-between",
+		alignItems: "center",
+		width: GLOBAL.screen.width,
+		height: GLOBAL.screen.height,
+	},
+
+	promptTopContainer: {
+		justifyContent: "center",
+		alignItems: "center",
+		width: promptContentWidth,
+		marginTop: GLOBAL.screen.topOffset + promptBtnHeight,
+	},
+
+	promptTitle: {
+		textAlign: "center",
+		width: GLOBAL.slot.width,
+		fontFamily: "Trickster-Reg-Semi",
+		fontSize: 1.9 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.palette[0],
+	},
+
+	promptImg: {
+		width: promptContentWidth,
+		height: 0.6 * promptContentWidth,
+		borderWidth: GLOBAL.ui.inputBorderWidth,
+		borderColor: GLOBAL.ui.palette[0],
+		borderRadius: GLOBAL.screen.horizOffset,
+		marginTop: GLOBAL.ui.bodyTextSize,
+	},
+
+	promptSubtitle: {
+		width: "90%",
+		textAlign: "center",
+		fontFamily: "Trickster-Reg-Semi",
+		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.palette[0],
+		marginTop: GLOBAL.ui.bodyTextSize,
+	},
+
+	promptBottomContainer: {
+		alignItems: "center",
+		width: "100%",
+		marginBottom: promptBtnHeight,
+	},
+
+	promptNotNowText: {
+		fontFamily: "Trickster-Reg-Semi",
+		fontSize: GLOBAL.ui.bodyTextSize,
+		color: GLOBAL.ui.palette[0],
+		textDecorationLine: "underline",
+	},
+
 	slotMask: {
 		position: "absolute",
 		top: GLOBAL.screen.topOffset,
@@ -160,92 +214,35 @@ type PromptTypes = {
 }
 const Prompt = (props: PromptTypes) => {
 	return (
-		<Reanimated.View style={[
-			{
-				position: "absolute",
-				justifyContent: "center",
-				alignItems: "center",
-				width: GLOBAL.screen.width,
-				height: GLOBAL.screen.height,
-			},
-			props.animStyle
-		]}>
-			<View style={[
-				{
-					justifyContent: "center",
-					alignItems: "center",
-					width: promptContentWidth,
-					marginTop: GLOBAL.screen.topOffset,
-				},
-				GLOBAL.ui.btnShadowStyle(),
-				GLOBAL.ui.skewStyle
-			]}>
-				<Text style={[
-					{
-						textAlign: "center",
-						width: GLOBAL.slot.width,
-						fontFamily: "Trickster-Reg-Semi",
-						fontSize: 1.9 * GLOBAL.ui.bodyTextSize,
-						color: GLOBAL.ui.palette[0],
-					}
-				]}>{ props.title }</Text>
+		<Reanimated.View style={[styles.prompt, props.animStyle]}>
+			<View style={[styles.promptTopContainer, GLOBAL.ui.btnShadowStyle(), GLOBAL.ui.skewStyle]}>
+				<Text style={styles.promptTitle}>{ props.title }</Text>
 
 				<ExpoImage
-					style={{
-						width: promptContentWidth,
-						height: 0.6 * promptContentWidth,
-						backgroundColor: props.imgColor,
-						borderWidth: GLOBAL.ui.inputBorderWidth,
-						borderColor: GLOBAL.ui.palette[0],
-						borderRadius: GLOBAL.screen.horizOffset,
-						marginTop: GLOBAL.ui.bodyTextSize,
-					}}
+					style={[styles.promptImg, { backgroundColor: props.imgColor }]}
 					source={props.img}
 					contentFit="cover"
 				/>
 
 				{props.subtitles.map((subtitle, s) => (
-					<Text key={`prompt-subtitle${s}`} style={{
-						width: "90%",
-						textAlign: "center",
-						fontFamily: "Trickster-Reg-Semi",
-						fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
-						color: GLOBAL.ui.palette[0],
-						marginTop: GLOBAL.ui.bodyTextSize,
-					}}>{subtitle}</Text>
+					<Text key={`prompt-subtitle${s}`} style={styles.promptSubtitle}>{subtitle}</Text>
 				))}
 			</View>
 
-			<View style={[
-				{
-					alignItems: "center",
-					width: "100%",
-					marginTop: promptBtnHeight,
-				},
-				GLOBAL.ui.skewStyle
-			]}>
+			<View style={[styles.promptBottomContainer, GLOBAL.ui.skewStyle]}>
 				{props.btn}
 
 				<TouchableOpacity
-					style={[
-						{ marginTop: GLOBAL.ui.bodyTextSize },
-						GLOBAL.ui.btnShadowStyle()
-					]}
+					style={[{ marginTop: GLOBAL.ui.bodyTextSize }, GLOBAL.ui.btnShadowStyle()]}
 					hitSlop={GLOBAL.ui.bodyTextSize}
 					onPress={props.onNotNowPress}
 				>
-					<Text style={{
-						fontFamily: "Trickster-Reg-Semi",
-						fontSize: GLOBAL.ui.bodyTextSize,
-						color: GLOBAL.ui.palette[0],
-						textDecorationLine: "underline",
-					}}>Not now...</Text>
+					<Text style={styles.promptNotNowText}>Not now...</Text>
 				</TouchableOpacity>
 			</View>
 		</Reanimated.View>
 	);
 }
-
 
 export default function Layout() {
 	//* App storage
@@ -253,6 +250,7 @@ export default function Layout() {
 	const WriteDefaultSaveToFile = GLOBAL.useSaveStore(state => state.writeDefaultSaveToFile);
 	const LoadSave = GLOBAL.useSaveStore(state => state.loadSave);
 	const IsSaveLoaded = GLOBAL.useSaveStore(state => state.isSaveLoaded);
+	const SetIsSaveLoaded = GLOBAL.useSaveStore(state => state.setIsSaveLoaded);
 	const WriteNewSaveToFile = GLOBAL.useSaveStore(state => state.writeNewSaveToFile);
 
 	const PromptsCompleted = GLOBAL.useSaveStore(state => state.promptsCompleted);
@@ -272,11 +270,15 @@ export default function Layout() {
 	const screenInsets = useSafeAreaInsets();
 
 	useEffect(() => {
-		// Save
-		InitDefaultSaveData();
-		// WriteDefaultSaveToFile(); //^ Save write
-		LoadSave();
 		GLOBAL.screen.topOffset = screenInsets.top;
+		InitDefaultSaveData();
+
+		// Development
+		// WriteDefaultSaveToFile(); //^ Save write
+		// SetIsSaveLoaded(true);
+
+		// Production
+		LoadSave();
 	}, []);
 
 	useEffect(() => {
@@ -286,6 +288,43 @@ export default function Layout() {
 			SetNeedsToGeolocate(true);
 		}
 	}, [IsSaveLoaded]);
+
+
+	//* Geolocation
+	useEffect(() => {
+		if (NeedsToGeolocate) {
+			(async () => {
+				const { granted: locGranted } = await ExpoLocation.getForegroundPermissionsAsync();
+				if (locGranted) {
+					const position = await ExpoLocation.getCurrentPositionAsync({});
+					if (!position) {
+						console.log("Failed to get current position");
+						return; // bail early
+					}
+					const lat = position.coords.latitude;
+					const lon = position.coords.longitude;
+
+					const results = await ExpoLocation.reverseGeocodeAsync({
+						latitude: lat,
+						longitude: lon,
+					});
+					if (!results || results.length === 0) {
+						console.log("Failed to reverse geocode location");
+						return; // bail early
+					}
+
+					const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
+					const city = new GLOBAL.City(name!, lat, lon);
+					city.setNextBodyTimes(ActiveBody!);
+					SetHereCity(city);
+					console.log("Geolocation was a success!");
+					WriteNewSaveToFile(); //^ Save write
+					ScheduleNotifs();
+				}
+				SetNeedsToGeolocate(false);
+			})();
+		}
+	}, [NeedsToGeolocate]);
 
 
 	//* Fonts
@@ -361,48 +400,11 @@ export default function Layout() {
 				1000 * GLOBAL.ui.animDuration,
 				withTiming(
 					(PromptsCompleted[0] && PromptsCompleted[1]) ? 1 : 0,
-					{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
+					{ duration: 2 * 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
 				)
 			);
 		}
 	}, [IsSaveLoaded, PromptsCompleted]);
-
-
-	//* Geolocation
-	useEffect(() => {
-		if (NeedsToGeolocate) {
-			(async () => {
-				const { granted: locGranted } = await ExpoLocation.getForegroundPermissionsAsync();
-				if (locGranted) {
-					const position = await ExpoLocation.getCurrentPositionAsync({});
-					if (!position) {
-						console.log("Failed to get current position");
-						return; // bail early
-					}
-					const lat = position.coords.latitude;
-					const lon = position.coords.longitude;
-
-					const results = await ExpoLocation.reverseGeocodeAsync({
-						latitude: lat,
-						longitude: lon,
-					});
-					if (!results || results.length === 0) {
-						console.log("Failed to reverse geocode location");
-						return; // bail early
-					}
-
-					const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
-					const city = new GLOBAL.City(name!, lat, lon);
-					city.setNextBodyTimes(ActiveBody!);
-					SetHereCity(city);
-					console.log("Geolocation was a success!");
-					WriteNewSaveToFile(); //^ Save write
-					ScheduleNotifs();
-				}
-				SetNeedsToGeolocate(false);
-			})();
-		}
-	}, [NeedsToGeolocate]);
 
 
 	//* Components
@@ -643,7 +645,7 @@ export default function Layout() {
 				img={require("../assets/images/prompts/notifications-shear.png")}
 				imgColor="#d4d5d0"
 				subtitles={[
-					`${Application.applicationName} can send push notifications to remind you when your next Pluto Time occurs.`,
+					`${Application.applicationName} can send notifications to remind you when your next Pluto Time occurs.`,
 					"For the best experience, choose\n\"Allow\" when prompted."
 				]}
 				btn={
@@ -717,6 +719,7 @@ export default function Layout() {
 							await ExpoLocation.requestForegroundPermissionsAsync();
 							SetPromptCompleted(0, true);
 							WriteNewSaveToFile(); //^ Save write
+							SetNeedsToGeolocate(true);
 						}}
 						onPressOut={() => {
 							setIsLocationBtnPressed(false);

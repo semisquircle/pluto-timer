@@ -1,7 +1,7 @@
 import { Image as ExpoImage } from "expo-image";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import * as GLOBAL from "./global";
 
 
@@ -55,9 +55,9 @@ export default function StarField() {
 	return (
 		<View style={styles.starField}>
 			{starLayerSources.map((source, s) => (
-				<Animated.View key={`stars${s}`} style={[styles.starLayer, starLayerAnimStyles[s]]}>
+				<Reanimated.View key={`stars${s}`} style={[styles.starLayer, starLayerAnimStyles[s]]}>
 					<ExpoImage style={{ width: "100%", height: "100%" }} source={source} contentFit="fill" />
-				</Animated.View>
+				</Reanimated.View>
 			))}
 		</View>
 	);

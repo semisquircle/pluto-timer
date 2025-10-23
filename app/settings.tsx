@@ -1,9 +1,10 @@
+import { RectBtn } from "@/ref/btns";
 import * as GLOBAL from "@/ref/global";
-import { RectBtn } from "@/ref/rect-btn";
 import { SlotBottomShadow, SlotTopShadow } from "@/ref/slot-shadows";
+import * as Haptics from "expo-haptics";
 import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import Reanimated, { interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
@@ -48,7 +49,7 @@ const credits = [
 	{ name: "Semi Squircle", jobs: ["Programming", "Development"] },
 	{ name: "NASA", jobs: ["New Horizons data", "Jet Propulsion Laboratory", "Planetary Spectrum Generator"] },
 	{ name: "@DaveMcW", jobs: ["Comuputation archive"] },
-	{ name: "@Deep-Fold", jobs: ["Planet textures"] },
+	{ name: "@Deep-Fold", jobs: ["Pixel Planet Generator"] },
 	{ name: "Denis Moskowitz", jobs: ["Astronomical symbols"] },
 ];
 
@@ -171,9 +172,7 @@ const styles = StyleSheet.create({
 	},
 
 	kilroy: {
-		position: "absolute",
-		left: (GLOBAL.slot.width - kilroyWidth) / 2,
-		bottom: -kilroyHeight,
+		marginBottom: -kilroyHeight,
 	},
 });
 
@@ -212,6 +211,7 @@ export default function SettingsScreen() {
 	//* App storage
 	const WriteDefaultSaveToFile = GLOBAL.useSaveStore(state => state.writeDefaultSaveToFile);
 	const LoadSave = GLOBAL.useSaveStore(state => state.loadSave);
+	const SetIsSaveLoaded = GLOBAL.useSaveStore(state => state.setIsSaveLoaded);
 	const WriteNewSaveToFile = GLOBAL.useSaveStore(state => state.writeNewSaveToFile);
 
 	const SetPromptCompleted = GLOBAL.useSaveStore(state => state.setPromptCompleted);
@@ -251,7 +251,7 @@ export default function SettingsScreen() {
 	useEffect(() => {
 		timeFormatProgress.value = withTiming(
 			(IsFormat24Hour) ? 1 : 0,
-			{ duration: 1000 * GLOBAL.ui.animDuration }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.inOut(Easing.quad) }
 		);
 	}, [IsFormat24Hour]);
 
@@ -278,6 +278,7 @@ export default function SettingsScreen() {
 		<View style={styles.content}>
 			<ScrollView
 				style={[styles.settingsScrollContainer]}
+				contentContainerStyle={{ alignItems: "center" }}
 				showsVerticalScrollIndicator={false}
 				onScroll={(evt) => {
 					setScrollPosition(evt.nativeEvent.contentOffset.y);
@@ -353,6 +354,7 @@ export default function SettingsScreen() {
 									key={`freq-option-${i}`}
 									style={[styles.freqOption, containerAnimStyle]}
 									onPress={() => {
+										Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 										ToggleNotifFreq(i);
 										WriteNewSaveToFile(); //^ Save write
 										ScheduleNotifs();
@@ -534,6 +536,7 @@ export default function SettingsScreen() {
 									if (f === (IsFormat24Hour ? 0 : 1)) setTimeFormatPressed(f);
 								}}
 								onPress={() => {
+									Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 									SetIsFormat24Hour(f == 1);
 									WriteNewSaveToFile(); //^ Save write
 								}}
@@ -732,19 +735,8 @@ export default function SettingsScreen() {
 						))}
 					</View>
 
-					{/* <Text style={[styles.subtitle, { color: subTitleColor }]}>
-						This app was NOT brought to you by:
-					</Text>
-					<View style={[styles.creditContainer, { borderColor: inputOffColor }]}>
-						<Text style={{
-							fontFamily: "Trickster-Reg-Semi",
-							fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
-							color: inputOffColor,
-						}}>Artificial Intelligence</Text>
-					</View> */}
-
 					<RectBtn
-						style={{ marginTop: (2.5 * GLOBAL.screen.horizOffset) + (0.6 * GLOBAL.ui.bodyTextSize) }}
+						style={{ marginTop: 2.5 * GLOBAL.screen.horizOffset }}
 						text="Restore all settings to default"
 						width={restoreBtnWidth}
 						height={restoreBtnHeight}
@@ -774,8 +766,8 @@ export default function SettingsScreen() {
 										style: "destructive",
 										onPress: () => {
 											WriteDefaultSaveToFile(); //^ Save write
+											SetIsSaveLoaded(false);
 											LoadSave();
-											SetNeedsToGeolocate(true);
 											setIsRestoreBtnActive(false);
 										}
 									},
@@ -808,6 +800,10 @@ export default function SettingsScreen() {
 							setIsPermBtnPressed(false);
 						}}
 					/> */}
+
+					<Text style={[styles.subtitle, { textAlign: "center", color: inputOffColor }]}>
+						Version 1.0.0
+					</Text>
 
 					<View style={styles.settingsScrollSpacer}></View>
 				</View>

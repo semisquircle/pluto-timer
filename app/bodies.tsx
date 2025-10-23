@@ -1,3 +1,4 @@
+import { CircleBtn } from "@/ref/btns";
 import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow, SlotTopShadow } from "@/ref/slot-shadows";
 import { AllBodies, CelestialBody, CelestialSystem, SolarSystem } from "@/ref/solar-system";
@@ -6,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import Reanimated, { Easing, SharedValue, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { withPause } from "react-native-redash";
-import { Circle, ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
+import { ClipPath, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
 //* Reanimated
@@ -66,13 +67,15 @@ type BodyBtnTypes = {
 
 const BodyBtn = (props: BodyBtnTypes) => {
 	const [isImgDisplayed, setIsImgDisplayed] = useState<boolean>(false);
+	const bodyMajorAxis = props.body.scale.x * props.diameter;
+	const bodyMinorAxis = props.body.scale.y * props.diameter;
 	const newDiameter = (props.body.hasRings) ? 2 * props.diameter : props.diameter;
 
 	const bodyInterestProgress = useSharedValue(0);
 	useEffect(() => {
 		bodyInterestProgress.value = withTiming(
 			(props.isInterested) ? 1 : 0,
-			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.inOut(Easing.cubic) }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.linear }
 		);
 	}, [props.isInterested]);
 
@@ -96,28 +99,27 @@ const BodyBtn = (props: BodyBtnTypes) => {
 					position: "absolute",
 					justifyContent: "center",
 					alignItems: "center",
-					width: (props.body.scale.x * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth),
-					height: (props.body.scale.y * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth),
+					width: bodyMajorAxis + (2 * GLOBAL.ui.inputBorderWidth),
+					height: bodyMinorAxis + (2 * GLOBAL.ui.inputBorderWidth),
 				}}
 				onPress={props.onPress}
 			>
 				<Svg
-					style={GLOBAL.ui.btnShadowStyle()}
 					width="100%"
 					height="100%"
 					viewBox={`0 0
-						${(props.body.scale.x * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
-						${(props.body.scale.y * props.diameter) + (2 * GLOBAL.ui.inputBorderWidth)}
+						${bodyMajorAxis + (2 * GLOBAL.ui.inputBorderWidth)}
+						${bodyMinorAxis + (2 * GLOBAL.ui.inputBorderWidth)}
 					`}
 				>
 					<ReanimatedEllipse
-						fill={props.body.palette[2]}
+						fill={(isImgDisplayed) ? "transparent" : props.body.colors[2]}
 						stroke={GLOBAL.ui.palette[0]}
 						animatedProps={bodyAnimProps}
-						cx={(props.body.scale.x * props.diameter) / 2 + GLOBAL.ui.inputBorderWidth}
-						cy={(props.body.scale.y * props.diameter) / 2 + GLOBAL.ui.inputBorderWidth}
-						rx={(props.body.scale.x * props.diameter) / 2}
-						ry={(props.body.scale.y * props.diameter) / 2}
+						cx={bodyMajorAxis / 2 + GLOBAL.ui.inputBorderWidth}
+						cy={bodyMinorAxis / 2 + GLOBAL.ui.inputBorderWidth}
+						rx={bodyMajorAxis / 2}
+						ry={bodyMinorAxis / 2}
 					/>
 				</Svg>
 			</ReanimatedPressable>
@@ -243,7 +245,7 @@ const SystemItem = (props: SystemTypes) => {
 			{props.system.moons.map((moon, moonIndex) => {
 				const theta = (moonIndex * 2 * Math.PI) / numSatellites - (2 * Math.PI / 3);
 				const moonAnimStyle = useAnimatedStyle(() => {
-					const angle = (props.orbitRot.value * (Math.PI / 180)) + theta;
+					let angle = (((moon.name == "Triton") ? -1 : 1) * props.orbitRot.value * (Math.PI / 180)) + theta;
 					const x = (systemDiameter - moonDiameter) * Math.cos(angle) / 2;
 					const y = (systemDiameter - moonDiameter) * Math.sin(angle) / 2;
 					return { transform: [{ translateX: x }, { translateY: y }] };
@@ -362,19 +364,10 @@ const styles = StyleSheet.create({
 		position: "absolute",
 	},
 
-	boiPopupCloseBtnContainer: {
+	boiPopupCloseBtn: {
 		position: "absolute",
-		justifyContent: "center",
-		alignItems: "center",
 		top: boiPopupPadding,
 		right: boiPopupPadding,
-		width: boiPopupCloseBtnDimension,
-		height: boiPopupCloseBtnDimension,
-		borderRadius: "50%",
-	},
-
-	boiPopupCloseBtnSvg: {
-		position: "absolute",
 	},
 
 	boiPopupUseBtnContainer: {
@@ -470,9 +463,8 @@ export default function BodiesScreen() {
 	const orbitDuration = 15; // Seconds
 	useEffect(() => {
 		orbitRot.value = withPause(
-			withRepeat(withTiming(
-				360,
-				{ duration: 1000 * orbitDuration, easing: Easing.linear }),
+			withRepeat(
+				withTiming(360, { duration: 1000 * orbitDuration, easing: Easing.linear }),
 				-1,
 				false
 			),
@@ -532,6 +524,7 @@ export default function BodiesScreen() {
 									<ExpoImage
 										style={styles.solSpriteSheetImg}
 										source={sol.spriteSheet}
+										cachePolicy="none"
 										onDisplay={() => {
 											setIsSolSpriteSheetDisplayed(true);
 										}}
@@ -563,7 +556,7 @@ export default function BodiesScreen() {
 						</Defs>
 
 						<SvgText
-							fill={ActiveBody?.palette[0]}
+							fill={ActiveBody?.palette[2]}
 							fontFamily="Trickster-Reg-Semi"
 							fontSize={notToScaleTextSize}
 							letterSpacing="1"
@@ -603,12 +596,12 @@ export default function BodiesScreen() {
 					/>
 				</Svg>
 
-				<Pressable
-					style={[
-						styles.boiPopupCloseBtnContainer,
-						{ backgroundColor: (isBoiPopupCloseBtnPressed) ? btnPressedBgColor : btnBgColor },
-						(!isBoiPopupCloseBtnPressed) && GLOBAL.ui.btnShadowStyle(),
-					]}
+				<CircleBtn
+					style={styles.boiPopupCloseBtn}
+					dimension={boiPopupCloseBtnDimension}
+					isPressed={isBoiPopupCloseBtnPressed}
+					color={btnBgColor}
+					pressedColor={btnPressedBgColor}
 					onPressIn={() => {
 						setIsBoiPopupCloseBtnPressed(true);
 					}}
@@ -621,74 +614,7 @@ export default function BodiesScreen() {
 					}}
 				>
 					<Svg
-						style={styles.boiPopupCloseBtnSvg}
-						width="100%"
-						height="100%"
-						viewBox={`0 0 ${boiPopupCloseBtnDimension} ${boiPopupCloseBtnDimension}`}
-					>
-						<Defs>
-							<LinearGradient id="top-blob" x1="0%" x2="0" y1="0%" y2="100%">
-								<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-								<Stop offset="100%" stopColor="white" stopOpacity="0" />
-							</LinearGradient>
-
-							<RadialGradient id="bottom-blob" cx="50%" cy="100%" r="100%" fx="50%" fy="100%">
-								<Stop offset="0%" stopColor="white" stopOpacity="0.7" />
-								<Stop offset="100%" stopColor="white" stopOpacity="0" />
-							</RadialGradient>
-
-							<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
-								<Stop offset="0%" stopColor="black" stopOpacity="0" />
-								<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
-							</LinearGradient>
-
-							<ClipPath id="top-blob-clip">
-								<Circle
-									r={(boiPopupCloseBtnDimension / 2) - GLOBAL.ui.inputBorderWidth}
-									cx={boiPopupCloseBtnDimension / 2}
-									cy={boiPopupCloseBtnDimension / 2}
-								/>
-							</ClipPath>
-
-							<ClipPath id="btn-clip">
-								<Circle
-									r={boiPopupCloseBtnDimension / 2}
-									cx={boiPopupCloseBtnDimension / 2}
-									cy={boiPopupCloseBtnDimension / 2}
-								/>
-							</ClipPath>
-						</Defs>
-
-						<Circle
-							r={boiPopupCloseBtnDimension / 2}
-							cx={boiPopupCloseBtnDimension / 2}
-							cy={boiPopupCloseBtnDimension / 2}
-							fill="url(#bottom-blob)"
-							clipPath="url(#top-blob-clip)"
-						/>
-
-						<Ellipse
-							rx={0.8 * ((boiPopupCloseBtnDimension / 2) - GLOBAL.ui.inputBorderWidth)}
-							ry={((boiPopupCloseBtnDimension / 2) - GLOBAL.ui.inputBorderWidth) / 2}
-							cx={boiPopupCloseBtnDimension / 2}
-							cy={GLOBAL.ui.inputBorderWidth + ((boiPopupCloseBtnDimension / 2) - GLOBAL.ui.inputBorderWidth) / 2}
-							fill="url(#top-blob)"
-							clipPath="url(#top-blob-clip)"
-						/>
-
-						<Circle
-							r={boiPopupCloseBtnDimension / 2}
-							cx={boiPopupCloseBtnDimension / 2}
-							cy={boiPopupCloseBtnDimension / 2}
-							fill="transparent"
-							stroke="url(#stroke)"
-							strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-							clipPath="url(#btn-clip)"
-						/>
-					</Svg>
-
-					<Svg
-						style={[styles.boiPopupCloseBtnSvg, GLOBAL.ui.btnShadowStyle()]}
+						style={[{ position: "absolute" }, GLOBAL.ui.btnShadowStyle()]}
 						viewBox="0 0 100 100"
 					>
 						<Path
@@ -698,7 +624,7 @@ export default function BodiesScreen() {
 							d="M 33.287299,30 30,33.287299 C 36.366047,38.606816 42.479657,44.179517 48.346514,49.999245 42.479574,55.819068 36.366145,61.393102 30,66.7127 L 33.287299,70 C 38.606901,63.633854 44.179419,57.518915 49.999245,51.651973 55.819167,57.518997 61.39302,63.633756 66.7127,70 L 70,66.7127 C 63.633757,61.39302 57.518997,55.819167 51.651973,49.999245 57.518915,44.179419 63.633853,38.606899 70,33.287299 L 66.7127,30 C 61.393101,36.366145 55.819068,42.479574 49.999245,48.346514 44.179517,42.479657 38.606816,36.366047 33.287299,30 Z"
 						/>
 					</Svg>
-				</Pressable>
+				</CircleBtn>
 
 				<View style={styles.boiPopupUseBtnContainer}>
 					<Svg

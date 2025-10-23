@@ -60,7 +60,7 @@ export const ui = {
 		}
 	},
 	animDuration: 0.2,
-	fps: 20,
+	fps: 16,
 	alertYes: "Yerp!",
 	alertNo: "Wait...",
 }
@@ -110,7 +110,7 @@ export class City {
 	name: string;
 	lat: number;
 	lng: number;
-	nextBodyTimes = Array.from({ length: 10 }, () => new Date(Date.now() + 2 * ONE_DAY));
+	nextBodyTimes = Array.from({ length: 60 }, () => new Date(Date.now() + 2 * ONE_DAY));
 
 	constructor(name: string, lat: number, lon: number) {
 		this.name = name;
@@ -130,6 +130,8 @@ export class City {
 			times = SUNCALC.getTimes(tomorrow, this.lat, this.lng);
 		}
 		return times.solarNoon;
+		// const foo = new Date(start.getTime() + 2 * ONE_MINUTE);
+		// return new Date(Math.floor(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
 	}
 
 	findNextBodyTime(isBefore: boolean, targetAltitude: number, start: Date, end: Date): Date {
@@ -149,12 +151,16 @@ export class City {
 			}
 		}
 		return new Date(endT);
-		// let foo = new Date(start.getTime() + 2 * ONE_MINUTE);
-		// return new Date(Math.round(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
+		// const foo = new Date(start.getTime() + 2 * ONE_MINUTE);
+		// return new Date(Math.floor(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
 	}
 
 	setNextBodyTimes(body: CelestialBody) {
 		let startTime = new Date();
+		// startTime.setDate(20);
+		// startTime.setMonth(3);
+		// startTime.setFullYear(2025);
+		// startTime.setHours(12);
 		let targetTime = new Date(startTime.getTime() - ONE_MINUTE);
 		for (let t = 0; t < this.nextBodyTimes.length; t++) {
 			if (body.name == "Terra") targetTime = this.findNextSolarNoon(targetTime);
@@ -165,7 +171,7 @@ export class City {
 				tomorrow.setHours(tomorrow.getHours() + 24);
 				targetTime = this.findNextBodyTime(isBefore, body.targetAltitude, targetTime, tomorrow);
 			}
-			this.nextBodyTimes[t] = startTime = targetTime;
+			this.nextBodyTimes[t] = startTime = new Date(Math.floor(targetTime.getTime() / ONE_MINUTE) * ONE_MINUTE);
 		}
 
 		// this.nextBodyTimes.map((nextBodyTime) => {
@@ -226,6 +232,7 @@ type saveStoreTypes = {
 	writeDefaultSaveToFile: () => void,
 
 	isSaveLoaded?: boolean, //^ Not save worthy
+	setIsSaveLoaded: (bool: boolean) => void,
 	loadSave: () => void,
 	writeNewSaveToFile: () => void,
 
@@ -275,6 +282,7 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		delete saveData.needToGeolocate;
 		delete saveData.activeTab;
 		delete saveData.activeBody;
+		saveData.promptsCompleted = [true, true];
 		set({ defaultSaveData: saveData });
 	},
 	writeDefaultSaveToFile: async () => {
@@ -286,6 +294,7 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	},
 
 	isSaveLoaded: false,
+	setIsSaveLoaded: (bool) => set({ isSaveLoaded: bool }),
 	loadSave: async () => {
 		if (saveFile.exists) {
 			const dataFromSaveJSON = await saveFile.text();
@@ -300,7 +309,7 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 			console.log("Loaded preexisting data from save file.");
 		}
 		else console.log("No save file found, using default save data.");
-		set({ isSaveLoaded: true });
+		get().setIsSaveLoaded(true);
 	},
 	writeNewSaveToFile: async () => {
 		const saveData = {...get()};
@@ -328,11 +337,12 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 	scheduleNotifs: async () => {
 		const { granted: notifsGranted } = await Notifications.getPermissionsAsync();
 		if (notifsGranted) {
-			const scheduleLocalNotif = (title: string, content: string, date: Date) => {
+			const scheduleLocalNotif = (title: string, boddy: string, date: Date) => {
 				Notifications.scheduleNotificationAsync({
 					content: {
 						title: title,
-						body: content,
+						body: boddy,
+						interruptionLevel: "critical",
 					},
 					trigger: {
 						type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -342,19 +352,35 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 			}
 			
 			const activeBody = get().activeBody;
-			const activeCity = get().savedCities[get().activeCityIndex];
+			const activeCityIndex = get().activeCityIndex;
+			const activeCity = get().savedCities[activeCityIndex];
 			const timeName = (activeBody?.name == "Terra") ? "Solar Noon" : `${activeBody?.name} Time`;
-			const contents = (activeBody?.name == "Terra") ? [
-				`Step outside — it's the brightest moment of the day.`,
-				`In just five minutes, it will be the brightest moment of the day.`,
-				`In ten minutes, it will be the brightest moment of the day.`
-			] : [
-				`Step outside — the light around you now matches high noon on ${activeBody?.name}.`,
-				`In just five minutes, the sunlight around you will match high noon on ${activeBody?.name}.`,
-				`In ten minutes, the sunlight around you will match high noon on ${activeBody?.name}.`
-			];
 			const freqs = get().notifFreqs;
 			const reminders = get().notifReminders;
+
+			const youAreHere = (activeCityIndex == 0);
+			const isTerra = (activeBody?.name == "Terra");
+			const cityText = (youAreHere) ?  "" : ` in ${activeCity.name}`;
+
+			const titleTexts = [
+				`It's ${timeName}${cityText}!`,
+				`Almost ${timeName}${cityText}...`,
+				`Almost ${timeName}${cityText}...`,
+			];
+
+			const currentBoddyText = (isTerra)
+				? `${(youAreHere) ? "it's" : "It's"} the brightest moment of the day${cityText}.`
+				: `${(youAreHere) ? "the" : "The"} sunlight${cityText} ${(youAreHere) ? "around you " : ""}now matches high noon on ${activeBody?.name}.`;
+
+			const futureBoddyText = (isTerra)
+				? `it will be the brightest moment of the day${cityText}.`
+				: `the sunlight${cityText} will match high noon on ${activeBody?.name}.`;
+
+			const boddyTexts = [
+				`${(youAreHere) ? "Step outside – " : ""}${currentBoddyText}`,
+				`In just five minutes, ${futureBoddyText}`,
+				`In ten minutes, ${futureBoddyText}`,
+			];
 
 			Notifications.cancelAllScheduledNotificationsAsync();
 			activeCity.nextBodyTimes.map((nextBodyTime) => {
@@ -364,11 +390,11 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 					const tenMinBefore = new Date(nextBodyTime.getTime() - (10 * ONE_MINUTE));
 
 					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[0])
-						scheduleLocalNotif(`It's ${timeName}!`, contents[0], nextBodyTime);
+						scheduleLocalNotif(titleTexts[0], boddyTexts[0], nextBodyTime);
 					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[1])
-						scheduleLocalNotif(`Almost ${timeName}...`, contents[1], fiveMinBefore);
+						scheduleLocalNotif(titleTexts[1], boddyTexts[1], fiveMinBefore);
 					if (((isBeforeNoon == freqs[0]) || (!isBeforeNoon == freqs[1])) && reminders[2])
-						scheduleLocalNotif(`Almost ${timeName}...`, contents[2], tenMinBefore);
+						scheduleLocalNotif(titleTexts[2], boddyTexts[2], tenMinBefore);
 				}
 			});
 		}
@@ -386,7 +412,10 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		set({ activeBody: body });
 	},
 
-	savedCities: [new City("Nowhere", 40, 74)],
+	savedCities: [
+		new City("Reykjavík", 64.13548, -21.89541),
+		// new City("Manchester", 42.15032, -84.03772),
+	],
 	setSavedCities: (cities) => set({ savedCities: cities }),
 	setHereCity: (city) => {
 		set(state => ({ savedCities: [city, ...state.savedCities.slice(1)] }));

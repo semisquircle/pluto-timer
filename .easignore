@@ -40,7 +40,6 @@ android/
 python/
 assets/svgs
 assets/images/screenshots
-assets/images/prompts
 assets/fonts/Trickster/svg
 **/uncompressed
 **/*.txt
@@ -52,6 +51,3 @@ assets/fonts/Trickster/svg
 **/*.sfd
 **/*.sh
 **/*.ipa
-
-!gitignore
-assets/images/prompts/*-shear.png

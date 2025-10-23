@@ -2,12 +2,13 @@ import AllCities from "@/ref/cities.json" with { type: "json" };
 import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow } from "@/ref/slot-shadows";
 import { CelestialBody } from "@/ref/solar-system";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Keyboard, KeyboardEvent, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing, interpolate, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { ClipPath, Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
 
 
@@ -80,9 +81,15 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 	useEffect(() => {
 		cityOptionColorProgress.value = withTiming(
 			(props.index == props.activeCityIndex) ? 1 : 0,
-			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.cubic) }
+			{ duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.linear) }
 		);
 	}, [props.activeCityIndex]);
+
+	const cityOptionOpacityProgress = useSharedValue(1);
+	useEffect(() => { cityOptionOpacityProgress.value = 1 }, [props.city]);
+	const cityOptionAnimStyle = useAnimatedStyle(() => {
+		return { opacity: cityOptionOpacityProgress.value }
+	});
 
 	const middleBtnAnimStyle = useAnimatedStyle(() => {
 		return {
@@ -160,15 +167,19 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 	});
 
 	const strokeAnimProps = useAnimatedProps(() => {
-		return { stroke: interpolateColor(nowProgress.value, [0, 1], ["transparent", "white"]) }
+		return {
+			stroke: interpolateColor(nowProgress.value, [0, 1], ["black", "white"]),
+			opacity: interpolate(nowProgress.value, [0, 1], [0.25, 1])
+		}
 	});
 
 	return (
-		<View
+		<Reanimated.View
 			ref={ref}
 			style={[
 				styles.cityOptionRow,
-				{ height: (props.index > 0) ? cityOptionHeight + cityOptionGap : cityOptionHeight }
+				{ height: (props.index > 0) ? cityOptionHeight + cityOptionGap : cityOptionHeight },
+				cityOptionAnimStyle
 			]}
 		>
 			<TouchableOpacity
@@ -176,7 +187,14 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 					styles.cityOptionFuncBtn,
 					{ left: 0, width: cityOptionDeleteBtnWidth }
 				]}
-				onPress={props.onDeletePress}
+				onPress={() => {
+					cityOptionOpacityProgress.value = withTiming(
+						0, { duration: 1000 * GLOBAL.ui.animDuration, easing: Easing.out(Easing.linear) }
+					);
+					setTimeout(() => {
+						props.onDeletePress();
+					}, 1000 * GLOBAL.ui.animDuration);
+				}}
 			>
 				<Svg
 					width={svgIconDimension}
@@ -214,11 +232,6 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 							<Stop offset="100%" stopColor="white" stopOpacity="0" />
 						</RadialGradient>
 	
-						<LinearGradient id="stroke" x1="0%" x2="0" y1="0%" y2="100%">
-							<Stop offset="0%" stopColor="black" stopOpacity="0" />
-							<Stop offset="100%" stopColor="black" stopOpacity="0.5" />
-						</LinearGradient>
-	
 						<ClipPath id="btn-clip">
 							<ReanimatedRect
 								fill="transparent"
@@ -251,22 +264,10 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 	
 					<ReanimatedRect
 						fill="transparent"
-						stroke="url(#stroke)"
 						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
 						x={0}
 						y={0}
-						animatedProps={widthAnimProps}
-						height={cityOptionHeight}
-						rx={cityOptionBorderRadius}
-						clipPath="url(#btn-clip)"
-					/>
-
-					<ReanimatedRect
-						fill="transparent"
-						animatedProps={[strokeAnimProps, widthAnimProps]}
-						strokeWidth={2 * GLOBAL.ui.inputBorderWidth}
-						x={0}
-						y={0}
+						animatedProps={[widthAnimProps, strokeAnimProps]}
 						height={cityOptionHeight}
 						rx={cityOptionBorderRadius}
 						clipPath="url(#btn-clip)"
@@ -325,7 +326,7 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 					/>
 				</Svg>
 			</Pressable>
-		</View>
+		</Reanimated.View>
 	);
 });
 
@@ -571,6 +572,13 @@ export default function CitiesScreen() {
 	const [cityScrollOffset, setCityScrollOffset] = useState(0);
 	const [cityInputValue, setCityInputValue] = useState<string>("");
 	const [isCityInputFocused, setIsCityInputFocused] = useState<boolean>(false);
+
+	const handleCityInputPress = () => {
+		cityInputRef.current?.focus();
+		setIsCityInputFocused(true);
+		setIsEditingCities(false);
+	}
+
 	const [cityResults, setCityResults] = useState<any[]>([]);
 	const handleCitySearch = (text: string) => {
 		if (text.trim().length < 2) {
@@ -578,9 +586,18 @@ export default function CitiesScreen() {
 			return;
 		}
 
-		const filteredCities = allCities.filter((city: any) =>
-			city.fullName.toLowerCase().includes(text.toLowerCase())
-		).slice(0, 20);
+		const lowerText = text.toLowerCase();
+		const filteredCities = [];
+		for (const city of allCities) {
+			const cityFullNameLower = city.fullName.toLowerCase();
+			if (
+				cityFullNameLower.includes(lowerText) ||
+				cityFullNameLower.replace(/, /g, " ").includes(lowerText)
+			) {
+				filteredCities.push(city);
+				if (filteredCities.length === 20) break;
+			}
+		}
 		setCityResults(filteredCities);
 	};
 
@@ -718,10 +735,7 @@ export default function CitiesScreen() {
 					}}>
 						<ReanimatedPressable
 							style={[styles.cityInputWrapper, cityInputWrapperAnimStyle]}
-							onPress={() => {
-								cityInputRef.current?.focus();
-								setIsCityInputFocused(true);
-							}}
+							onPress={handleCityInputPress}
 						>
 							<Svg style={styles.citySearchSvg} viewBox="0 0 100 100">
 								<Path
@@ -733,15 +747,12 @@ export default function CitiesScreen() {
 							</Svg>
 
 							<TextInput
+								ref={cityInputRef}
 								style={styles.cityInput}
 								placeholder="Search for a city"
 								placeholderTextColor={bodyTextColor}
-								ref={cityInputRef}
 								value={cityInputValue}
-								onPress={() => {
-									setIsCityInputFocused(true);
-									setIsEditingCities(false);
-								}}
+								onPress={handleCityInputPress}
 								onChangeText={(newValue) => {
 									setCityInputValue(newValue);
 									handleCitySearch(newValue);
@@ -846,6 +857,9 @@ export default function CitiesScreen() {
 					data={cityOptionData}
 					renderItem={CityOptionRowItem}
 					keyExtractor={item => item.key}
+					onPlaceholderIndexChange={() => {
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+					}}
 					onDragEnd={({ data, from, to }) => {
 						setCityOptionData(data);
 						const reorderedCities = data.map(item => item.city);

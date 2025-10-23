@@ -22,10 +22,10 @@ const styles = StyleSheet.create({
 });
 
 
-interface SlotTopShadowInterface { style?: any }
-export function SlotTopShadow({ style }: SlotTopShadowInterface) {
+type SlotTopShadowInterface = { style?: any }
+export const SlotTopShadow = (props: SlotTopShadowInterface) => {
 	return (
-		<View style={[styles.slotShadowContainer, style]} pointerEvents="none">
+		<View style={[styles.slotShadowContainer, props.style]} pointerEvents="none">
 			{Array.from({ length: 4 }).map((_, i) => (
 				<Svg
 					key={`shadow-top-${i}`}
@@ -61,10 +61,10 @@ export function SlotTopShadow({ style }: SlotTopShadowInterface) {
 }
 
 
-interface SlotBottomShadowInterface { style?: any }
-export function SlotBottomShadow({ style }: SlotBottomShadowInterface) {
+type SlotBottomShadowInterface = { style?: any }
+export const SlotBottomShadow = (props: SlotTopShadowInterface) => {
 	return (
-		<View style={[styles.slotShadowContainer, style]} pointerEvents="none">
+		<View style={[styles.slotShadowContainer, props.style]} pointerEvents="none">
 			{Array.from({ length: 4 }).map((_, i) => (
 				<Svg
 					key={`shadow-bottom-${i}`}

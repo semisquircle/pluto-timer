@@ -1,11 +1,12 @@
 import * as GLOBAL from "@/ref/global";
 import { SlotTopShadow } from "@/ref/slot-shadows";
+import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import React, { useEffect, useRef, useState } from "react";
 import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Reanimated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { withPause } from "react-native-redash";
-import { Defs, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
+import { Defs, Ellipse, Path, Svg, Text as SvgText, TextPath, TSpan } from "react-native-svg";
 
 
 const ReaniamtedExpoImage = Reanimated.createAnimatedComponent(ExpoImage);
@@ -32,10 +33,14 @@ export default function HomeScreen() {
 
 
 	//* Body rotation animation/dragging
-	const bodyMajorAxis = ActiveBody?.scale.x! * GLOBAL.slot.width;
-	const bodyMinorAxis = ActiveBody?.scale.y! * GLOBAL.slot.width;
-	const ringMajorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMajorAxis;
-	const ringMinorAxis = ((ActiveBody?.hasRings) ? 1.75 : 1) * bodyMinorAxis;
+	const ringScaleDown = 0.5;
+	const ringScaleUp = 1.75;
+	const baseMajorAxis = ActiveBody?.scale.x! * GLOBAL.slot.width;
+	const baseMinorAxis = ActiveBody?.scale.y! * GLOBAL.slot.width;
+	const bodyMajorAxis = ((ActiveBody?.hasRings) ? ringScaleDown * ringScaleUp : 1) * baseMajorAxis;
+	const bodyMinorAxis = ((ActiveBody?.hasRings) ? ringScaleDown * ringScaleUp : 1) * baseMinorAxis;
+	const ringMajorAxis = ((ActiveBody?.hasRings) ? ringScaleUp : 1) * baseMajorAxis;
+	const ringMinorAxis = ((ActiveBody?.hasRings) ? ringScaleUp : 1) * baseMinorAxis;
 
 	const [isStarsImgDisplayed, setIsStarsImgDisplayed] = useState<boolean>(false);
 	const [isBodyPlaceholderImgDisplayed, setIsBodyPlaceholderImgDisplayed] = useState<boolean>(false);
@@ -44,6 +49,7 @@ export default function HomeScreen() {
 	const bodyFrame = useSharedValue(0);
 	const bodyFrameOffset = useSharedValue(0);
 	const lastBodyFrameOffset = useSharedValue(0);
+	const lastBodyFrameInt = useSharedValue(0);
 	const dragStartX = useSharedValue(0);
 	const dragStartY = useSharedValue(0);
 	const isDraggingBody = useSharedValue(false);
@@ -94,7 +100,14 @@ export default function HomeScreen() {
 				const dy = evt.nativeEvent.pageY - dragStartY.value;
 				const theta = (ActiveBody?.axialTilt ?? 0) * (Math.PI / 180);
 				const offsetAlongTilt = dx * Math.cos(theta) + dy * Math.sin(theta);
-				bodyFrameOffset.value = (lastBodyFrameOffset.value + offsetAlongTilt / 2) % totalBodyFrames;
+				bodyFrameOffset.value = (lastBodyFrameOffset.value + (offsetAlongTilt / 2)) % totalBodyFrames;
+
+				const modFrame = (f: number) => ((f % totalBodyFrames) + totalBodyFrames) % totalBodyFrames;
+				const bodyFrameInt = modFrame(Math.round(bodyFrame.value + bodyFrameOffset.value));
+				if (Math.abs(bodyFrameInt - lastBodyFrameInt.value) > 0) {
+					lastBodyFrameInt.value = bodyFrameInt;
+					Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+				}
 			},
 			onPanResponderRelease: () => {
 				lastBodyFrameOffset.value = bodyFrameOffset.value;
@@ -154,23 +167,31 @@ export default function HomeScreen() {
 
 
 	//* Text fitting
-	const getFontSize = (text: string, font: GLOBAL.TimeFont, padding: number) => {
-		const width = text.split("").reduce((w, char, i) => {
+	const getFontWidth = (text: string, font: GLOBAL.TimeFont) => {
+		return text.split("").reduce((w, char, i) => {
 			const glyph = font.glyph_widths.find(g => g.char === char);
 			return w + glyph!.width + ((i < text.length - 1) ? font.spacing : 0);
 		}, 0);
+	}
+
+	const getFontSize = (font: GLOBAL.TimeFont, width: number, padding: number) => {
 		return ((GLOBAL.slot.width - (2 * padding)) / width) * font.glyph_height;
 	}
 
 	const nextBodyTime = (IsFormat24Hour) ? ActiveCity.get24HourClockTime() : ActiveCity.get12HourClockTime();
 	// const nextBodyTime = "1:11PM";
-	const num1s = nextBodyTime.split("1").length - 1;
 	const nextBodyDate = ActiveCity.getDateLong();
-	const nextBodyTimeFont = GLOBAL.ui.timeFonts[(IsFormat24Hour) ? 2 : (num1s >= 2) ? 1 : 0];
-	const nextBodyTimeFontSize = getFontSize(nextBodyTime, nextBodyTimeFont, GLOBAL.screen.horizOffset);
+	let nextBodyTimeFont = GLOBAL.ui.timeFonts[(IsFormat24Hour) ? 2 : 0];
+	let nextBodyTimeFontWidth = getFontWidth(nextBodyTime, nextBodyTimeFont);
+	if (nextBodyTimeFontWidth < 1.2 * nextBodyTimeFont.glyph_height) {
+		nextBodyTimeFont = GLOBAL.ui.timeFonts[1];
+		nextBodyTimeFontWidth = getFontWidth(nextBodyTime, nextBodyTimeFont);
+	}
+	const nextBodyTimeFontSize = getFontSize(nextBodyTimeFont, nextBodyTimeFontWidth, GLOBAL.screen.horizOffset);
 
 	const nowFont = GLOBAL.ui.timeFonts[1];
-	const nowFontSize = getFontSize("NOW!", nowFont, 2 * GLOBAL.screen.horizOffset);
+	const nowFontWidth = getFontWidth("NOW!", nowFont);
+	const nowFontSize = getFontSize(nowFont, nowFontWidth, 2 * GLOBAL.screen.horizOffset);
 
 	const locationNameTextOffset = GLOBAL.screen.horizOffset;
 	const locationNameTextSize =
@@ -256,17 +277,11 @@ export default function HomeScreen() {
 		bodySpriteSheetContainer: {
 			position: "absolute",
 			top: -ringMinorAxis / 2,
+			justifyContent: "center",
+			alignItems: "center",
 			width: ringMajorAxis,
 			height: ringMinorAxis,
 			overflow: "hidden",
-		},
-
-		bodyPlaceholder: {
-			position: "absolute",
-			width: bodyMajorAxis,
-			height: bodyMinorAxis,
-			backgroundColor: ActiveBody?.colors[2],
-			borderRadius: "50%",
 		},
 
 		bodyPlaceholderImg: {
@@ -390,7 +405,20 @@ export default function HomeScreen() {
 
 			<View style={styles.bodySpriteSheetContainer} {...bodyPanResponder.panHandlers}>
 				{(!isBodyPlaceholderImgDisplayed) &&
-					<View style={[styles.bodyPlaceholder, GLOBAL.ui.btnShadowStyle()]}></View>
+					<Svg
+						style={[{ position: "absolute" }, GLOBAL.ui.btnShadowStyle()]}
+						width={bodyMajorAxis}
+						height={bodyMinorAxis}
+						viewBox={`0 0 ${bodyMajorAxis} ${bodyMinorAxis}`}
+					>
+						<Ellipse
+							fill={ActiveBody?.colors[2]}
+							cx={bodyMajorAxis / 2}
+							cy={bodyMinorAxis / 2}
+							rx={bodyMajorAxis / 2}
+							ry={bodyMinorAxis / 2}
+						/>
+					</Svg>
 				}
 
 				{(!isBodySpriteSheetDisplayed) &&
@@ -408,6 +436,7 @@ export default function HomeScreen() {
 						<ExpoImage
 							style={styles.bodySpriteSheetImg}
 							source={ActiveBody?.spriteSheet}
+							cachePolicy="none"
 							onDisplay={() => {
 								setIsBodySpriteSheetDisplayed(true);
 							}}
