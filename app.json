@@ -11,10 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.semisquircle.plutotimer",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "process"
-        ]
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
