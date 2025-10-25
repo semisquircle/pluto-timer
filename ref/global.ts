@@ -102,15 +102,16 @@ export const slot = {
 
 
 //* City class
-const ONE_DAY = 24 * 60 * 60 * 1000;
 const ONE_MINUTE = 60 * 1000;
-export const bodyTimeLength = 5 * 60 * 1000;
+const ONE_HOUR = 60 * ONE_MINUTE;
+const ONE_DAY = 24 * ONE_HOUR;
+export const bodyTimeLength = 0.5 * 60 * 1000;
 
 export class City {
 	name: string;
 	lat: number;
 	lng: number;
-	nextBodyTimes = Array.from({ length: 60 }, () => new Date(Date.now() + 2 * ONE_DAY));
+	nextBodyTimes = Array.from({ length: 10 }, () => new Date(Date.now() + 2 * ONE_DAY));
 
 	constructor(name: string, lat: number, lon: number) {
 		this.name = name;
@@ -118,62 +119,59 @@ export class City {
 		this.lng = lon;
 	}
 
-	solarAltitudeAt(date: Date): number {
-		const pos = SUNCALC.getPosition(date, this.lat, this.lng);
-		return pos.altitude * (180 / Math.PI);
+	getNextSolarNoons(start: Date): Date[] {
+		const results = [];
+		for (let i = 0; results.length < this.nextBodyTimes.length; i++) {
+			const date = new Date(start.getTime() + i * ONE_DAY);
+			const { solarNoon } = SUNCALC.getTimes(date, this.lat, this.lng);
+			solarNoon.setSeconds(0, 0);
+			if (solarNoon.getTime() > start.getTime()) results.push(solarNoon);
+		}
+		return results;
 	}
 
-	findNextSolarNoon(start: Date): Date {
-		let times = SUNCALC.getTimes(start, this.lat, this.lng);
-		if (times.solarNoon.getTime() <= start.getTime()) {
-			const tomorrow = new Date(start.getTime() + ONE_DAY);
-			times = SUNCALC.getTimes(tomorrow, this.lat, this.lng);
+	getNextBodyTimes(start: Date, body: CelestialBody): Date[] {
+		SUNCALC.addTime(body.targetAltitude, "bodyTimeMorning", "bodyTimeEvening");
+		const results = [];
+		for (let i = 0; results.length < this.nextBodyTimes.length; i++) {
+			const date = new Date(start.getTime() + i * ONE_DAY);
+			const times = SUNCALC.getTimes(date, this.lat, this.lng);
+			const morning = times["bodyTimeMorning"];
+			const evening = times["bodyTimeEvening"];
+			morning.setSeconds(0, 0);
+			evening.setSeconds(0, 0);
+			if (morning.getTime() > start.getTime()) results.push(morning);
+			if (evening.getTime() > start.getTime()) results.push(evening);
 		}
-		return times.solarNoon;
-		// const foo = new Date(start.getTime() + 2 * ONE_MINUTE);
-		// return new Date(Math.floor(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
+		return results.slice(0, this.nextBodyTimes.length);
 	}
 
-	findNextBodyTime(isBefore: boolean, targetAltitude: number, start: Date, end: Date): Date {
-		let startT = start.getTime();
-		let endT = end.getTime();
-		while (endT - startT > ONE_MINUTE) {
-			const midT = (startT + endT) / 2;
-			const midDate = new Date(midT);
-			const midAlt = this.solarAltitudeAt(midDate);
-			if (
-				(isBefore && midAlt > targetAltitude) ||
-				(!isBefore && midAlt <= targetAltitude)
-			) {
-				endT = midT;
-			} else {
-				startT = midT;
-			}
-		}
-		return new Date(endT);
-		// const foo = new Date(start.getTime() + 2 * ONE_MINUTE);
-		// return new Date(Math.floor(foo.getTime() / ONE_MINUTE) * ONE_MINUTE);
-	}
+	// getNextTestTimes(start: Date): Date[] {
+	// 	const dt = 5;
+	// 	const results = [];
+	// 	const next = new Date(start);
+	// 	next.setSeconds(0, 0);
+	// 	const nextMinute = Math.ceil((start.getMinutes() + 1) / dt) * dt;
+	// 	if (nextMinute >= 60) {
+	// 		next.setHours(next.getHours() + 1);
+	// 		next.setMinutes(0);
+	// 	}
+	// 	else next.setMinutes(nextMinute);
+	// 	for (let i = 0; i < this.nextBodyTimes.length; i++) {
+	// 		results.push(new Date(next.getTime() + i * dt * ONE_MINUTE));
+	// 	}
+	// 	return results;
+	// }
 
 	setNextBodyTimes(body: CelestialBody) {
-		let startTime = new Date();
-		// startTime.setDate(20);
-		// startTime.setMonth(3);
-		// startTime.setFullYear(2025);
-		// startTime.setHours(12);
-		let targetTime = new Date(startTime.getTime() - ONE_MINUTE);
-		for (let t = 0; t < this.nextBodyTimes.length; t++) {
-			if (body.name == "Terra") targetTime = this.findNextSolarNoon(targetTime);
-			else {
-				const altitude = this.solarAltitudeAt(startTime);
-				const isBefore = (altitude <= body.targetAltitude);
-				const tomorrow = new Date(startTime.getTime());
-				tomorrow.setHours(tomorrow.getHours() + 24);
-				targetTime = this.findNextBodyTime(isBefore, body.targetAltitude, targetTime, tomorrow);
-			}
-			this.nextBodyTimes[t] = startTime = new Date(Math.floor(targetTime.getTime() / ONE_MINUTE) * ONE_MINUTE);
-		}
+		const now = new Date();
+		const start = new Date(now.getTime() - bodyTimeLength);
 
+		if (body.name == "Terra") this.nextBodyTimes = this.getNextSolarNoons(start);
+		else this.nextBodyTimes = this.getNextBodyTimes(start, body);
+		// else this.nextBodyTimes = this.getNextTestTimes(start);
+
+		// console.log(this.name);
 		// this.nextBodyTimes.map((nextBodyTime) => {
 		// 	console.log(`${nextBodyTime.toLocaleTimeString()} ${nextBodyTime.toLocaleDateString()}`);
 		// });

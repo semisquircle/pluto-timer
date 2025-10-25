@@ -2,7 +2,7 @@ import * as GLOBAL from "@/ref/global";
 import { SlotTopShadow } from "@/ref/slot-shadows";
 import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Reanimated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { withPause } from "react-native-redash";
@@ -79,8 +79,8 @@ export default function HomeScreen() {
 		};
 	});
 
-	const bodyPanResponder = useRef(
-		PanResponder.create({
+	const bodyPanResponder = useMemo(() => {
+		return PanResponder.create({
 			onStartShouldSetPanResponder: (evt) => {
 				const a = bodyMinorAxis / 2;
 				const b = bodyMajorAxis / 2;
@@ -113,8 +113,8 @@ export default function HomeScreen() {
 				lastBodyFrameOffset.value = bodyFrameOffset.value;
 				isDraggingBody.value = false;
 			},
-		})
-	).current;
+		});
+	}, [ActiveBody]);
 
 
 	//* Finger animation
