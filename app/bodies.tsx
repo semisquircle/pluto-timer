@@ -400,10 +400,10 @@ const styles = StyleSheet.create({
 export default function BodiesScreen() {
 	//* App storage
 	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
+	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SetActiveBody = GLOBAL.useSaveStore((state) => state.setActiveBody);
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
-	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
 
 
 	//* Colors

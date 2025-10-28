@@ -9,7 +9,7 @@ import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
 import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
@@ -122,17 +122,18 @@ const styles = StyleSheet.create({
 	},
 
 	promptTopContainer: {
+		flex: 1,
 		justifyContent: "center",
 		alignItems: "center",
 		width: promptContentWidth,
-		marginTop: GLOBAL.screen.topOffset + promptBtnHeight,
+		marginTop: GLOBAL.screen.topOffset,
 	},
 
 	promptTitle: {
 		textAlign: "center",
 		width: GLOBAL.slot.width,
 		fontFamily: "Trickster-Reg-Semi",
-		fontSize: 1.9 * GLOBAL.ui.bodyTextSize,
+		fontSize: 1.7 * GLOBAL.ui.bodyTextSize,
 		color: GLOBAL.ui.palette[0],
 	},
 
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
 		width: "90%",
 		textAlign: "center",
 		fontFamily: "Trickster-Reg-Semi",
-		fontSize: 0.8 * GLOBAL.ui.bodyTextSize,
+		fontSize: 0.7 * GLOBAL.ui.bodyTextSize,
 		color: GLOBAL.ui.palette[0],
 		marginTop: GLOBAL.ui.bodyTextSize,
 	},
@@ -210,7 +211,6 @@ type PromptTypes = {
 	imgColor: any;
 	subtitles: string[];
 	btn: any;
-	onNotNowPress: () => void;
 }
 const Prompt = (props: PromptTypes) => {
 	return (
@@ -231,14 +231,6 @@ const Prompt = (props: PromptTypes) => {
 
 			<View style={[styles.promptBottomContainer, GLOBAL.ui.skewStyle]}>
 				{props.btn}
-
-				<TouchableOpacity
-					style={[{ marginTop: GLOBAL.ui.bodyTextSize }, GLOBAL.ui.btnShadowStyle()]}
-					hitSlop={GLOBAL.ui.bodyTextSize}
-					onPress={props.onNotNowPress}
-				>
-					<Text style={styles.promptNotNowText}>Not now...</Text>
-				</TouchableOpacity>
 			</View>
 		</Reanimated.View>
 	);
@@ -255,15 +247,13 @@ export default function Layout() {
 
 	const PromptsCompleted = GLOBAL.useSaveStore(state => state.promptsCompleted);
 	const SetPromptCompleted = GLOBAL.useSaveStore(state => state.setPromptCompleted);
-	const NeedsToGeolocate = GLOBAL.useSaveStore(state => state.needToGeolocate);
-	const SetNeedsToGeolocate = GLOBAL.useSaveStore(state => state.setNeedToGeolocate);
+	const Geolocate = GLOBAL.useSaveStore(state => state.geolocate);
 	const ScheduleNotifs = GLOBAL.useSaveStore(state => state.scheduleNotifs);
 
 	const ActiveTab = GLOBAL.useSaveStore(state => state.activeTab);
 	const SetActiveTab = GLOBAL.useSaveStore(state => state.setActiveTab);
 	const ActiveBody = GLOBAL.useSaveStore(state => state.activeBody);
 	const SavedCities = GLOBAL.useSaveStore(state => state.savedCities);
-	const SetHereCity = GLOBAL.useSaveStore(state => state.setHereCity);
 
 
 	//* Meat and potatoes
@@ -282,49 +272,14 @@ export default function Layout() {
 	}, []);
 
 	useEffect(() => {
-		if (IsSaveLoaded) {
-			SavedCities.map(city => city.setNextBodyTimes(ActiveBody!));
-			ScheduleNotifs();
-			SetNeedsToGeolocate(true);
-		}
-	}, [IsSaveLoaded]);
-
-
-	//* Geolocation
-	useEffect(() => {
-		if (NeedsToGeolocate) {
+		if (IsSaveLoaded && PromptsCompleted[0] && PromptsCompleted[1]) {
 			(async () => {
-				const { granted: locGranted } = await ExpoLocation.getForegroundPermissionsAsync();
-				if (locGranted) {
-					const position = await ExpoLocation.getCurrentPositionAsync({});
-					if (!position) {
-						console.log("Failed to get current position");
-						return; // bail early
-					}
-					const lat = position.coords.latitude;
-					const lon = position.coords.longitude;
-
-					const results = await ExpoLocation.reverseGeocodeAsync({
-						latitude: lat,
-						longitude: lon,
-					});
-					if (!results || results.length === 0) {
-						console.log("Failed to reverse geocode location");
-						return; // bail early
-					}
-
-					const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
-					const city = new GLOBAL.City(name!, lat, lon);
-					city.setNextBodyTimes(ActiveBody!);
-					SetHereCity(city);
-					console.log("Geolocation was a success!");
-					WriteNewSaveToFile(); //^ Save write
-					ScheduleNotifs();
-				}
-				SetNeedsToGeolocate(false);
+				await Geolocate();
+				SavedCities.map(city => city.setNextBodyTimes(ActiveBody!));
+				await ScheduleNotifs();
 			})();
 		}
-	}, [NeedsToGeolocate]);
+	}, [IsSaveLoaded, PromptsCompleted]);
 
 
 	//* Fonts
@@ -646,11 +601,12 @@ export default function Layout() {
 				imgColor="#d4d5d0"
 				subtitles={[
 					`${Application.applicationName} can send notifications to remind you when your next Pluto Time occurs.`,
-					"For the best experience, choose\n\"Allow\" when prompted."
+					"Turning on notifications allows you to receive one to three reminders each Pluto Time, helping you make the most of the moment!",
+					"This option can be changed later in the Settings app."
 				]}
 				btn={
 					<RectBtn
-						text="Enable Notifications"
+						text="Continue"
 						width={promptContentWidth}
 						height={promptBtnHeight}
 						borderRadius={GLOBAL.screen.horizOffset}
@@ -671,40 +627,21 @@ export default function Layout() {
 						}}
 					/>
 				}
-				onNotNowPress={() => {
-					Alert.alert(
-						"Leave notifications disabled?",
-						"You'll need to open the app manually to know when your next Pluto Time occurs. Notifications can always be changed later in Settings.",
-						[
-							{
-								text: GLOBAL.ui.alertNo,
-								style: "cancel",
-							},
-							{
-								text: GLOBAL.ui.alertYes,
-								style: "destructive",
-								onPress: () => {
-									SetPromptCompleted(1, true);
-									WriteNewSaveToFile(); //^ Save write
-								}
-							},
-						]
-					);
-				}}
 			/>
 
 			<Prompt
 				animStyle={locationPromptAnimStyle}
-				title="¹ Location Access"
+				title="¹ Location Services"
 				img={require("../assets/images/prompts/location-shear.png")}
 				imgColor="black"
 				subtitles={[
-					`${Application.applicationName} uses your latitude and longitude to determine your geolocation and timing information, kind of like a weather app.`,
-					`For the best experience, choose\n"Allow While Using App" when prompted.`
+					`${Application.applicationName} can use your latitude/longitude to\ndetermine your geolocation and solar altitude,\nkind of like a weather app.`,
+					"Turning on location services ensures your Pluto Times stay accurate wherever you go!",
+					"Your location data won't be used for any other purposes. This option can be changed later in the Settings app."
 				]}
 				btn={
 					<RectBtn
-						text="Enable Location Access"
+						text="Continue"
 						width={promptContentWidth}
 						height={promptBtnHeight}
 						borderRadius={GLOBAL.screen.horizOffset}
@@ -719,33 +656,12 @@ export default function Layout() {
 							await ExpoLocation.requestForegroundPermissionsAsync();
 							SetPromptCompleted(0, true);
 							WriteNewSaveToFile(); //^ Save write
-							SetNeedsToGeolocate(true);
 						}}
 						onPressOut={() => {
 							setIsLocationBtnPressed(false);
 						}}
 					/>
 				}
-				onNotNowPress={() => {
-					Alert.alert(
-						"Leave location access disabled?",
-						"You'll need to set your location manually. Location access can always be changed later in Settings.",
-						[
-							{
-								text: GLOBAL.ui.alertNo,
-								style: "cancel",
-							},
-							{
-								text: GLOBAL.ui.alertYes,
-								style: "destructive",
-								onPress: () => {
-									SetPromptCompleted(0, true);
-									WriteNewSaveToFile(); //^ Save write
-								}
-							},
-						]
-					);
-				}}
 			/>
 		</View>
 	);

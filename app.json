@@ -45,7 +45,9 @@
       [
         "expo-location",
         {
-          "isIosBackgroundLocationEnabled": true
+          "isIosBackgroundLocationEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Your location is used to determine your city name and solar altitude. Precise positioning is not required.",
+          "locationWhenInUsePermission": "Your location is used to determine your city name and solar altitude. Precise positioning is not required."
         }
       ],
       [

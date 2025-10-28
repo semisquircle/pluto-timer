@@ -1,5 +1,6 @@
 import * as Application from "expo-application";
 import { Directory, File, Paths } from "expo-file-system";
+import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
 import { Dimensions, Platform } from "react-native";
 import * as SUNCALC from "suncalc";
@@ -61,8 +62,8 @@ export const ui = {
 	},
 	animDuration: 0.2,
 	fps: 16,
-	alertYes: "Yerp!",
-	alertNo: "Wait...",
+	alertYes: "Continue",
+	alertNo: "Cancel",
 }
 
 export const screen = {
@@ -105,13 +106,13 @@ export const slot = {
 const ONE_MINUTE = 60 * 1000;
 const ONE_HOUR = 60 * ONE_MINUTE;
 const ONE_DAY = 24 * ONE_HOUR;
-export const bodyTimeLength = 0.5 * 60 * 1000;
+export const bodyTimeLength = 5 * 60 * 1000;
 
 export class City {
 	name: string;
 	lat: number;
 	lng: number;
-	nextBodyTimes = Array.from({ length: 10 }, () => new Date(Date.now() + 2 * ONE_DAY));
+	nextBodyTimes = Array.from({ length: 60 }, () => new Date(Date.now() + 2 * ONE_DAY));
 
 	constructor(name: string, lat: number, lon: number) {
 		this.name = name;
@@ -238,10 +239,14 @@ type saveStoreTypes = {
 	promptsCompleted: boolean[],
 	setPromptCompleted: (index: number, bool: boolean) => void,
 
-	needToGeolocate?: boolean, //^ Not save worthy
-	setNeedToGeolocate: (bool: boolean) => void,
+	geolocate: () => Promise<void>,
 
-	scheduleNotifs: () => void,
+	notifFreqs: boolean[],
+	toggleNotifFreq: (index: number) => void,
+	notifReminders: boolean[],
+	toggleNotifReminder: (index: number) => void,
+	scheduleNotifs: () => Promise<void>,
+	disableAllNotifs: () => void,
 
 	// General storage
 	activeTab?: number, //^ Not save worthy
@@ -260,12 +265,6 @@ type saveStoreTypes = {
 	activeCityIndex: number,
 	setActiveCityIndex: (index: number) => void,
 
-	notifFreqs: boolean[],
-	toggleNotifFreq: (index: number) => void,
-
-	notifReminders: boolean[],
-	toggleNotifReminder: (index: number) => void,
-
 	isFormat24Hour: boolean,
 	setIsFormat24Hour: (bool: boolean) => void,
 }
@@ -277,7 +276,6 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		const saveData = {...get()};
 		delete saveData.defaultSaveData;
 		delete saveData.isSaveLoaded;
-		delete saveData.needToGeolocate;
 		delete saveData.activeTab;
 		delete saveData.activeBody;
 		saveData.promptsCompleted = [true, true];
@@ -313,7 +311,6 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		const saveData = {...get()};
 		delete saveData.defaultSaveData;
 		delete saveData.isSaveLoaded;
-		delete saveData.needToGeolocate;
 		delete saveData.activeTab;
 		delete saveData.activeBody;
 		const saveDataJSON = JSON.stringify(saveData);
@@ -329,9 +326,34 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 		set(state => ({ promptsCompleted: state.promptsCompleted.map((p, i) => i === index ? bool : p) }));
 	},
 
-	needToGeolocate: false,
-	setNeedToGeolocate: (bool) => set({ needToGeolocate: bool }),
+	geolocate: async () => {
+		const { granted: locGranted } = await ExpoLocation.getForegroundPermissionsAsync();
+		if (locGranted) {
+			const position = await ExpoLocation.getCurrentPositionAsync({});
+			const lat = position.coords.latitude;
+			const lon = position.coords.longitude;
+			const results = await ExpoLocation.reverseGeocodeAsync({
+				latitude: lat,
+				longitude: lon,
+			});
 
+			const name = results[0]?.city ?? results[0]?.region ?? results[0]?.country;
+			const city = new City(name!, lat, lon);
+			city.setNextBodyTimes(get().activeBody!);
+			get().setHereCity(city);
+			console.log("Geolocation was a success!");
+		}
+		else console.log("Location services not granted.");
+	},
+
+	notifFreqs: [true, true],
+	toggleNotifFreq: (index) => {
+		set(state => ({ notifFreqs: state.notifFreqs.map((b, i) => i === index ? !b : b) }));
+	},
+	notifReminders: [true, false, false],
+	toggleNotifReminder: (index) => {
+		set(state => ({ notifReminders: state.notifReminders.map((b, i) => i === index ? !b : b) }));
+	},
 	scheduleNotifs: async () => {
 		const { granted: notifsGranted } = await Notifications.getPermissionsAsync();
 		if (notifsGranted) {
@@ -395,7 +417,16 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 						scheduleLocalNotif(titleTexts[2], boddyTexts[2], tenMinBefore);
 				}
 			});
+
+			console.log("Notification scheduling was a success!");
+		} else {
+			get().disableAllNotifs();
+			console.log("Notifications not granted, disabled all.");
 		}
+	},
+	disableAllNotifs: () => {
+		set({ notifFreqs: [false, false] });
+		set({ notifReminders: [false, false, false] });
 	},
 
 	// General storage
@@ -427,16 +458,6 @@ export const useSaveStore = create<saveStoreTypes>((set, get) => ({
 
 	activeCityIndex: 0,
 	setActiveCityIndex: (index) => set({ activeCityIndex: index }),
-
-	notifFreqs: [true, true],
-	toggleNotifFreq: (index) => {
-		set(state => ({ notifFreqs: state.notifFreqs.map((b, i) => i === index ? !b : b) }));
-	},
-
-	notifReminders: [true, false, false],
-	toggleNotifReminder: (index) => {
-		set(state => ({ notifReminders: state.notifReminders.map((b, i) => i === index ? !b : b) }));
-	},
 
 	isFormat24Hour: false,
 	setIsFormat24Hour: (bool) => set({ isFormat24Hour: bool }),

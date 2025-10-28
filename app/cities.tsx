@@ -551,6 +551,8 @@ export default function CitiesScreen() {
 	//* App storage
 	const WriteNewSaveToFile = GLOBAL.useSaveStore((state) => state.writeNewSaveToFile);
 
+	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
+
 	const SetActiveTab = GLOBAL.useSaveStore((state) => state.setActiveTab);
 	const ActiveBody = GLOBAL.useSaveStore((state) => state.activeBody);
 	const SavedCities = GLOBAL.useSaveStore((state) => state.savedCities);
@@ -560,7 +562,6 @@ export default function CitiesScreen() {
 	const ActiveCityIndex = GLOBAL.useSaveStore((state) => state.activeCityIndex);
 	const SetActiveCityIndex = GLOBAL.useSaveStore((state) => state.setActiveCityIndex);
 	const IsFormat24Hour = GLOBAL.useSaveStore((state) => state.isFormat24Hour);
-	const ScheduleNotifs = GLOBAL.useSaveStore((state) => state.scheduleNotifs);
 
 
 	//* Colors

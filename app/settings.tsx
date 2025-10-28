@@ -1,7 +1,10 @@
 import { RectBtn } from "@/ref/btns";
 import * as GLOBAL from "@/ref/global";
 import { SlotBottomShadow, SlotTopShadow } from "@/ref/slot-shadows";
+import { CelestialBody } from "@/ref/solar-system";
+import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -17,7 +20,7 @@ const ReanimatedPath = Reanimated.createAnimatedComponent(Path);
 const ReanimatedSvgText = Reanimated.createAnimatedComponent(SvgText);
 
 
-//* Frequency of notifs
+//* Notifications
 const freqOptionDimension = (GLOBAL.slot.width - (3 * GLOBAL.screen.horizOffset)) / 2;
 const freqOptionSunPerc = 45;
 const freqOptionsTextSize = 1.5 * GLOBAL.ui.bodyTextSize;
@@ -33,6 +36,19 @@ const notifFreqOptions = [
 	},
 ];
 
+function notifAlert(body: CelestialBody) {
+	Alert.alert(
+		"Notifications are disabled",
+		`To schedule reminders for upcoming ${body.name} Times, please allow notifications in the Settings app.`,
+		[
+			{
+				text: "OK",
+				style: "default",
+			},
+		]
+	);
+}
+
 
 //* Time format options
 const timeFormatContainerWidth = GLOBAL.slot.width - (2 * GLOBAL.screen.horizOffset);
@@ -46,9 +62,9 @@ const timeFormatOptions = [
 
 //* Credits
 const credits = [
-	{ name: "Semi Squircle", jobs: ["Programming", "Development"] },
+	{ name: "semisquircle", jobs: ["Programming", "Development"] },
 	{ name: "NASA", jobs: ["New Horizons data", "Jet Propulsion Laboratory", "Planetary Spectrum Generator"] },
-	{ name: "@DaveMcW", jobs: ["Comuputation archive"] },
+	{ name: "@DaveMcW", jobs: ["Computation archive"] },
 	{ name: "@Deep-Fold", jobs: ["Pixel Planet Generator"] },
 	{ name: "Denis Moskowitz", jobs: ["Astronomical symbols"] },
 ];
@@ -215,14 +231,13 @@ export default function SettingsScreen() {
 	const WriteNewSaveToFile = GLOBAL.useSaveStore(state => state.writeNewSaveToFile);
 
 	const SetPromptCompleted = GLOBAL.useSaveStore(state => state.setPromptCompleted);
-	const ScheduleNotifs = GLOBAL.useSaveStore(state => state.scheduleNotifs);
-	const SetNeedsToGeolocate = GLOBAL.useSaveStore(state => state.setNeedToGeolocate);
-
-	const ActiveBody = GLOBAL.useSaveStore(state => state.activeBody);
 	const NotifFreqs = GLOBAL.useSaveStore(state => state.notifFreqs);
 	const ToggleNotifFreq = GLOBAL.useSaveStore(state => state.toggleNotifFreq);
 	const NotifReminders = GLOBAL.useSaveStore(state => state.notifReminders);
 	const ToggleNotifReminder = GLOBAL.useSaveStore(state => state.toggleNotifReminder);
+	const ScheduleNotifs = GLOBAL.useSaveStore(state => state.scheduleNotifs);
+
+	const ActiveBody = GLOBAL.useSaveStore(state => state.activeBody);
 	const IsFormat24Hour = GLOBAL.useSaveStore(state => state.isFormat24Hour);
 	const SetIsFormat24Hour = GLOBAL.useSaveStore(state => state.setIsFormat24Hour);
 
@@ -353,11 +368,15 @@ export default function SettingsScreen() {
 								<ReanimatedPressable
 									key={`freq-option-${i}`}
 									style={[styles.freqOption, containerAnimStyle]}
-									onPress={() => {
-										Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-										ToggleNotifFreq(i);
-										WriteNewSaveToFile(); //^ Save write
-										ScheduleNotifs();
+									onPress={async () => {
+										const { granted: notifsGranted } = await Notifications.getPermissionsAsync();
+										if (notifsGranted) {
+											Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+											ToggleNotifFreq(i);
+											WriteNewSaveToFile(); //^ Save write
+											ScheduleNotifs();
+										}
+										else notifAlert(ActiveBody!);
 									}}
 								>
 									<Svg
@@ -497,10 +516,14 @@ export default function SettingsScreen() {
 									trackColor={{ false: ActiveBody?.palette[3], true: ActiveBody?.palette[1] }}
 									ios_backgroundColor={GLOBAL.ui.palette[1]}
 									value={NotifReminders[o]}
-									onValueChange={() => {
-										ToggleNotifReminder(o);
-										WriteNewSaveToFile(); //^ Save write
-										ScheduleNotifs();
+									onValueChange={async () => {
+										const { granted: notifsGranted } = await Notifications.getPermissionsAsync();
+										if (notifsGranted) {
+											ToggleNotifReminder(o);
+											WriteNewSaveToFile(); //^ Save write
+											ScheduleNotifs();
+										}
+										else notifAlert(ActiveBody!);
 									}}
 								/>
 							</View>
@@ -751,7 +774,7 @@ export default function SettingsScreen() {
 						onPress={() => {
 							setIsRestoreBtnActive(true);
 							Alert.alert(
-								"Do you want to restore all settings to default?",
+								"Restore all settings to default?",
 								"This includes saved locations and your current planet/moon of choice.",
 								[
 									{
@@ -762,7 +785,7 @@ export default function SettingsScreen() {
 										}
 									},
 									{
-										text: GLOBAL.ui.alertYes,
+										text: "Restore",
 										style: "destructive",
 										onPress: () => {
 											WriteDefaultSaveToFile(); //^ Save write
@@ -779,7 +802,7 @@ export default function SettingsScreen() {
 						}}
 					/>
 
-					{/* <RectBtn
+					<RectBtn
 						style={{ marginTop: 2 * GLOBAL.ui.inputBorderWidth }}
 						text="Reset permissions"
 						width={restoreBtnWidth}
@@ -799,10 +822,10 @@ export default function SettingsScreen() {
 						onPressOut={() => {
 							setIsPermBtnPressed(false);
 						}}
-					/> */}
+					/>
 
 					<Text style={[styles.subtitle, { textAlign: "center", color: inputOffColor }]}>
-						Version 1.0.0
+						Version {Application.nativeApplicationVersion}
 					</Text>
 
 					<View style={styles.settingsScrollSpacer}></View>
