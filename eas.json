@@ -12,6 +12,18 @@
       "developmentClient": false,
       "distribution": "internal"
     },
+    "development-sim": {
+      "developmentClient": true,
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview-sim": {
+      "developmentClient": false,
+      "ios": {
+        "simulator": true
+      }
+    },
     "production": {
       "developmentClient": false,
       "autoIncrement": true

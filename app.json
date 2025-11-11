@@ -10,8 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.semisquircle.plutotimer",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,6 +30,7 @@
     "plugins": [
       "expo-asset",
       "expo-router",
+      "expo-notifications",
       [
         "expo-font",
         {
@@ -45,24 +46,17 @@
       [
         "expo-location",
         {
-          "isIosBackgroundLocationEnabled": true,
           "locationAlwaysAndWhenInUsePermission": "Your location is used to determine your city name and solar altitude. Precise positioning is not required.",
+          "locationAlwaysPermission": "Your location is used to determine your city name and solar altitude. Precise positioning is not required.",
           "locationWhenInUsePermission": "Your location is used to determine your city name and solar altitude. Precise positioning is not required."
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/app-icon/icon-full.png",
-          "color": "#ffffff",
-          "defaultChannel": "default",
-          "enableBackgroundRemoteNotifications": true
         }
       ],
       [
         "expo-build-properties",
         {
           "ios": {
+            "useFrameworks": "static",
+            "buildReactNativeFromSource": true
           }
         }
       ]

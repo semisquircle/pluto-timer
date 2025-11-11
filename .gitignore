@@ -38,6 +38,8 @@ yarn-error.*
 ios/
 android/
 python/
+builds/
+crashes/
 assets/svgs
 assets/images/screenshots
 assets/fonts/Trickster/svg
@@ -50,7 +52,6 @@ assets/fonts/Trickster/svg
 **/*.gd
 **/*.sfd
 **/*.sh
-**/*.ipa
 assets/images/finger-original.png
 
 assets/images/prompts/*

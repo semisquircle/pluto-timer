@@ -85,7 +85,6 @@ const kilroyHeight = kilroyWidth / 2;
 const styles = StyleSheet.create({
 	content: {
 		width: GLOBAL.slot.width,
-		height: GLOBAL.slot.height,
 		overflow: "hidden",
 	},
 
@@ -290,7 +289,7 @@ export default function SettingsScreen() {
 
 	//* Components
 	return (
-		<View style={styles.content}>
+		<View style={[styles.content, { height: GLOBAL.slot.height }]}>
 			<ScrollView
 				style={[styles.settingsScrollContainer]}
 				contentContainerStyle={{ alignItems: "center" }}
@@ -802,7 +801,7 @@ export default function SettingsScreen() {
 						}}
 					/>
 
-					<RectBtn
+					{/* <RectBtn
 						style={{ marginTop: 2 * GLOBAL.ui.inputBorderWidth }}
 						text="Reset permissions"
 						width={restoreBtnWidth}
@@ -822,7 +821,7 @@ export default function SettingsScreen() {
 						onPressOut={() => {
 							setIsPermBtnPressed(false);
 						}}
-					/>
+					/> */}
 
 					<Text style={[styles.subtitle, { textAlign: "center", color: inputOffColor }]}>
 						Version {Application.nativeApplicationVersion}

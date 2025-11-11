@@ -67,7 +67,8 @@ export const ui = {
 }
 
 export const screen = {
-	topOffset: 59,
+	// topOffset: 59,
+	topOffset: 10,
 	bottomOffset: 20,
 	horizOffset: 10,
 	width: Dimensions.get("window").width,

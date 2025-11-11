@@ -291,7 +291,6 @@ const styles = StyleSheet.create({
 	content: {
 		alignItems: "center",
 		width: GLOBAL.slot.width,
-		height: GLOBAL.slot.height,
 		overflow: "hidden",
 	},
 
@@ -497,7 +496,7 @@ export default function BodiesScreen() {
 
 	//* Components
 	return (
-		<View style={styles.content}>
+		<View style={[styles.content, { height: GLOBAL.slot.height }]}>
 			<FlatList
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ alignItems: "center" }}

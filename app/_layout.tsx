@@ -11,10 +11,11 @@ import { router, Slot } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import Reanimated, { Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 
 
+const ReanimatedSafeAreaView = Reanimated.createAnimatedComponent(SafeAreaView);
 const ReanimatedPath = Reanimated.createAnimatedComponent(Path);
 const ReanimatedExpoImage = Reanimated.createAnimatedComponent(ExpoImage);
 
@@ -119,14 +120,13 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		width: GLOBAL.screen.width,
 		height: GLOBAL.screen.height,
+		paddingTop: promptBtnHeight,
+		paddingBottom: promptBtnHeight / 2,
 	},
 
 	promptTopContainer: {
-		flex: 1,
-		justifyContent: "center",
 		alignItems: "center",
 		width: promptContentWidth,
-		marginTop: GLOBAL.screen.topOffset,
 	},
 
 	promptTitle: {
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
 	promptBottomContainer: {
 		alignItems: "center",
 		width: "100%",
-		marginBottom: promptBtnHeight,
+		// marginBottom: promptBtnHeight / 2,
 	},
 
 	promptNotNowText: {
@@ -170,9 +170,7 @@ const styles = StyleSheet.create({
 
 	slotMask: {
 		position: "absolute",
-		top: GLOBAL.screen.topOffset,
 		width: GLOBAL.slot.width,
-		height: GLOBAL.slot.height,
 	},
 
 	slotBG: {
@@ -214,7 +212,7 @@ type PromptTypes = {
 }
 const Prompt = (props: PromptTypes) => {
 	return (
-		<Reanimated.View style={[styles.prompt, props.animStyle]}>
+		<ReanimatedSafeAreaView style={[styles.prompt, props.animStyle]}>
 			<View style={[styles.promptTopContainer, GLOBAL.ui.btnShadowStyle(), GLOBAL.ui.skewStyle]}>
 				<Text style={styles.promptTitle}>{ props.title }</Text>
 
@@ -232,7 +230,7 @@ const Prompt = (props: PromptTypes) => {
 			<View style={[styles.promptBottomContainer, GLOBAL.ui.skewStyle]}>
 				{props.btn}
 			</View>
-		</Reanimated.View>
+		</ReanimatedSafeAreaView>
 	);
 }
 
@@ -322,11 +320,11 @@ export default function Layout() {
 	});
 
 	// Body
-	const bodyProgress = useSharedValue(0);
-	const bodyAnimStyle = useAnimatedStyle(() => {
+	const mainProgress = useSharedValue(0);
+	const mainAnimStyle = useAnimatedStyle(() => {
 		return {
-			display: (bodyProgress.value == 0) ? "none" : "flex",
-			opacity: bodyProgress.value,
+			display: (mainProgress.value == 0) ? "none" : "flex",
+			opacity: mainProgress.value,
 		}
 	});
 
@@ -351,7 +349,7 @@ export default function Layout() {
 				);
 			}
 
-			bodyProgress.value = withDelay(
+			mainProgress.value = withDelay(
 				1000 * GLOBAL.ui.animDuration,
 				withTiming(
 					(PromptsCompleted[0] && PromptsCompleted[1]) ? 1 : 0,
@@ -372,7 +370,7 @@ export default function Layout() {
 					width: GLOBAL.screen.width,
 					height: GLOBAL.screen.height,
 				},
-				bodyAnimStyle
+				mainAnimStyle
 			]}>
 				<StatusBar />
 
@@ -492,9 +490,13 @@ export default function Layout() {
 
 				{/* Slot mask */}
 				<MaskedView
-					style={styles.slotMask}
+					style={[styles.slotMask, { top: screenInsets.top, height: GLOBAL.slot.height }]}
 					maskElement={
-						<Svg width={GLOBAL.slot.width} height={GLOBAL.slot.height} pointerEvents="none">
+						<Svg
+							width={GLOBAL.slot.width}
+							height={GLOBAL.slot.height}
+							viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}
+						>
 							<Path d={`
 								M 0,${GLOBAL.slot.borderRadius}
 								v ${GLOBAL.slot.height - GLOBAL.slot.borderRadius - GLOBAL.slot.ellipseSemiMinor}
@@ -508,7 +510,6 @@ export default function Layout() {
 							`}/>
 						</Svg>
 					}
-					pointerEvents="box-none"
 				>
 					<View style={styles.slotBG} pointerEvents="none"></View>
 

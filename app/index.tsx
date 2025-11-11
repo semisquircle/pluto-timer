@@ -384,11 +384,6 @@ export default function HomeScreen() {
 			width: "100%",
 			height: "100%",
 		},
-
-		cityTextSvg: {
-			width: GLOBAL.slot.width,
-			height: GLOBAL.slot.height,
-		},
 	});
 
 
@@ -481,7 +476,11 @@ export default function HomeScreen() {
 
 			{/* Curved city text */}
 			<View style={[styles.cityTextContainer, GLOBAL.ui.btnShadowStyle()]} pointerEvents="none">
-				<Svg style={styles.cityTextSvg} viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}>
+				<Svg
+					width={GLOBAL.slot.width}
+					height={GLOBAL.slot.height}
+					viewBox={`0 0 ${GLOBAL.slot.width} ${GLOBAL.slot.height}`}
+				>
 					<Defs>
 						<Path id="semi-ellipse-cur-loc" fill="transparent" d={`
 							M ${youAreHereTextOffset},${GLOBAL.slot.height - GLOBAL.slot.ellipseSemiMinor}

@@ -335,7 +335,6 @@ const CityOptionRow = forwardRef<View, CityOptionRowTypes>((props, ref) => {
 const styles = StyleSheet.create({
 	content: {
 		width: GLOBAL.slot.width,
-		height: GLOBAL.slot.height,
 		overflow: "hidden",
 	},
 
@@ -408,7 +407,6 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		top: cityInputHeight,
 		width: "100%",
-		height: GLOBAL.slot.height,
 		backgroundColor: GLOBAL.ui.palette[1],
 		zIndex: 9998,
 		overflow: "hidden",
@@ -717,7 +715,7 @@ export default function CitiesScreen() {
 
 	//* Components
 	return (
-		<GestureHandlerRootView style={styles.content}>
+		<GestureHandlerRootView style={[styles.content, { height: GLOBAL.slot.height }]}>
 			<View style={[styles.skewContainer, GLOBAL.ui.skewStyle]}>
 				<Text style={styles.title}>Saved Locations</Text>
 
@@ -787,7 +785,11 @@ export default function CitiesScreen() {
 						</Reanimated.View>
 					</View>
 
-					<Reanimated.View style={[styles.cityResultScrollViewContainer, cityInputFadeAnimStyle]}>
+					<Reanimated.View style={[
+						styles.cityResultScrollViewContainer,
+						cityInputFadeAnimStyle,
+						{ height: GLOBAL.slot.height }
+					]}>
 						<ScrollView
 							ref={cityResultScrollViewRef}
 							style={[
