@@ -42,6 +42,7 @@ builds/
 crashes/
 assets/svgs
 assets/images/screenshots
+assets/images/bodies/PixelPlanetsSmooth
 assets/fonts/Trickster/svg
 **/uncompressed
 **/*.txt
